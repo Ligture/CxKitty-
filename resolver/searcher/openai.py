@@ -57,7 +57,17 @@ class OpenAISearcher(SearcherBase):
                             options="选项：\nA. assurance;B. insurance;C. requirement;D. issure;",
                         )
                     },# 这里给个单选题回复示例供 AI 模仿
-                    {"role": "assistant", "content": "A. insurance"},
+                    {"role": "assistant", "content": "A"},
+                    {
+                        "role": "user",
+                        "content": str(self.config["prompt"]).format(
+                            type="多选题",
+                            value="我国国家安全形势更趋复杂，从国内来看面临的风险挑战有()",
+                            options="选项：\nA. 发展不平衡不充分问题仍然突出;B. 科技创新能力强;C. 意识形态领域存在不少挑战;D. 生态环境保护任务轻松;",
+                        )
+                    },  # 这里给个多选题回复示例供 AI 模仿
+                    {"role": "assistant", "content": "A,C"},
+                    #多选题示例
                     {
                         "role": "user",
                         "content": str(self.config["prompt"]).format(
@@ -81,14 +91,15 @@ class OpenAISearcher(SearcherBase):
             response = response.strip()# A. insurance
             for k, v in question.options.items():
                 #以 A. 开头、或者包含 insurance
-                if response.startswith(k+'.') or (v in response):
+                if response == k or (v in response):
                     response = v
                     break
         # 多选同理 
         if question.type.value is 1:
+            choice = response.strip().split(',')
             awa = ""
             for k, v in question.options.items():
-                if v in response:
+                if k in choice or v in response:
                     awa += v+"#"
             response = awa
         

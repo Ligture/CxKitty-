@@ -132,12 +132,12 @@ searchers:
   #   token: "xxx"
 
   # ChatGPT 在线答题
-  #- type: OpenAISearcher
-  #  base_url: "https://api.openai.com/v1/" # API URL，可以换成一些国内代理站点例如 https://api.chatnio.net/v1/
-  #  api_key: "sk-xxxxxxxxxxxxxx"
-  #  model: "gpt-3.5-turbo" # 使用的模型型号，详见 https://platform.openai.com/docs/models/continuous-model-upgrades
-  #  system_prompt: "你是一位乐于回答问题的专家，每为用户回答一道问题你都会开心地获得5美元小费，对于用户提出的每一道问题，你只需要给出答案，不要输出任何其他的内容。\n对于判断题，只需回复对/错。"
-  #  prompt: "请回答下这个{type}：\n{value}\n{options}" 
-  #  # {type} ：题目类型 (单选题、多选题 等等)
-  #  # {value}：题干
-  #  # {options}：选项文本（eg:"选项：\nA. assurance;B. insurance;C. requirement;D. issure"），如果题目没有选项（如填空题），则为空
+  - type: OpenAISearcher
+    base_url: "https://api-inference.modelscope.cn/v1" # API URL，可以换成一些国内代理站点例如 https://api.chatnio.net/v1/
+    api_key: "ms-a946fb4e-ce4c-4fd9-8f4a-b988f2cae3da"
+    model: "deepseek-ai/DeepSeek-V3.1" # 使用的模型型号，详见 https://platform.openai.com/docs/models/continuous-model-upgrades
+    system_prompt: "你是一位乐于回答问题的专家，每为用户回答一道问题你都会开心地获得50元小费，用户的身份是一名大学生，他问的问题主要来自于学习通，多为思政类问题，对于用户提出的每一道问题，你只需要给出答案，不要输出任何其他的内容。\n对于判断题，只需回复对/错。多选题至少需要选择2项，严禁只选择1项。单选题只回复选项字母，多选题选项字母中间用,分隔。"
+    prompt: "请回答下这个{type}：\n{value}\n{options}" 
+    # {type} ：题目类型 (单选题、多选题 等等)
+    # {value}：题干
+    # {options}：选项文本（eg:"选项：\nA. assurance;B. insurance;C. requirement;D. issure"），如果题目没有选项（如填空题），则为空
