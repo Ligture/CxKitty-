@@ -65,10 +65,10 @@ exam:
 proxies: 
   #使能
   enable: false
-  #Http IP http://proxy.example.com:8080
-  #HTTP: 
-  #Https IP http://proxy.example.com:8080
-  #HTTPS: 
+  #Http IP http://127.0.0.1:7897
+  HTTP: http://127.0.0.1:7897
+  #Https IP http://127.0.0.1:7897
+  HTTPS: http://127.0.0.1:7897
 
 # --------------------
 
