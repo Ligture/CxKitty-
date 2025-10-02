@@ -196,10 +196,6 @@ class SessionWraper(Session):
         """
         self.__cb_resolve_face_before = cb
 
-    def post(self, *args, **kwargs) -> Response: #添加代理设置
-
-        return self.request(*args, **kwargs, proxies=proxies)
-
     def request(self, *args, **kwargs) -> Response:
         """ "requests.Session.request 的 hook 函数
         Args:
@@ -208,13 +204,13 @@ class SessionWraper(Session):
             Response: 响应数据
         """
         try:
-            resp = super().request(*args, **kwargs,proxies=proxies)
+            resp = super().request(*args, **kwargs,proxies=proxies,verify=False)
         except requests.ConnectionError as e:
             self.__request_retry_cnt += 1
             self.logger.warning(f"连接错误 {e.__str__()}")
             time.sleep(self.__retry_delay)
             if self.__request_retry_cnt < self.__request_max_retry:
-                return self.request(*args, **kwargs,proxies=proxies)
+                return self.request(*args, **kwargs)
             else:
                 raise
         self.__request_retry_cnt = 0
@@ -223,7 +219,7 @@ class SessionWraper(Session):
                 # 验证码
                 self.__handle_anti_spider()
                 # 递归重发请求
-                resp = self.request(*args, **kwargs,proxies=proxies)
+                resp = self.request(*args, **kwargs)
                 return resp
 
             case SpecialPageType.FACE:
@@ -232,7 +228,7 @@ class SessionWraper(Session):
                 self.__handle_face_detection(resp)
 
                 # 递归重发请求
-                resp = self.request(*args, **kwargs,proxies=proxies)
+                resp = self.request(*args, **kwargs)
                 return resp
 
             case SpecialPageType.NORMAL:
@@ -320,7 +316,6 @@ class SessionWraper(Session):
                 "ucode": code,
             },
             allow_redirects=False,
-            proxies=proxies# 阻止重定向，以进一步操作
         )
 
         # HTTP 302 即验证正确，HTTP 202 即验证错误

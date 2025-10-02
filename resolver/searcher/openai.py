@@ -53,11 +53,11 @@ class OpenAISearcher(SearcherBase):
                         "role": "user",
                         "content": str(self.config["prompt"]).format(
                             type="单选题",
-                            value="We didn’t have health____________ at the time and when I got a third infection, my parents couldn’t pay for the treatment.",
-                            options="选项：\nA. assurance;B. insurance;C. requirement;D. issure;",
+                            value="国家安全能力是国家（）表现出来的治理效能。",
+                            options="选项：\nA. 经济体系;B. 文化体系;C. 科学体系;D. 安全体系;",
                         )
                     },# 这里给个单选题回复示例供 AI 模仿
-                    {"role": "assistant", "content": "A"},
+                    {"role": "assistant", "content": "D"},
                     {
                         "role": "user",
                         "content": str(self.config["prompt"]).format(
@@ -90,7 +90,7 @@ class OpenAISearcher(SearcherBase):
         if question.type.value is 0:
             response = response.strip()# A. insurance
             for k, v in question.options.items():
-                #以 A. 开头、或者包含 insurance
+                #单独选项、或者包含 insurance
                 if response == k or (v in response):
                     response = v
                     break
