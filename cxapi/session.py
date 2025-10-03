@@ -33,9 +33,9 @@ API_CAPTCHA_SUBMIT = "https://mooc1-api.chaoxing.com/html/processVerify.ac"
 ocr = DdddOcr(show_ad=False)
 
 if config.HTTP_EN:
-    proxies = {"http": config.HTTP,"https": config.HTTPS}
+    proxies_config = {"http": config.HTTP,"https": config.HTTPS}
 else:
-    proxies = {"http": None, "https": None}  # 默认禁用代理 防止报错
+    proxies_config = {"http": None, "https": None}  # 默认禁用代理 防止报错
 
 class SpecialPageType(Enum):
     """特殊页类型"""
@@ -138,7 +138,8 @@ class SessionWraper(Session):
         self.__request_retry_cnt = 0
         self.__retry_delay = retry_delay
         self.face_detection = FaceDetectionDto(self)
-
+        self.proxies = proxies_config #session级别添加代理设置
+        self.trust_env = False
     def __cb_resolve_captcha_after(self, times: int):
         """识别验证码前 默认回调
         Args:
@@ -204,7 +205,7 @@ class SessionWraper(Session):
             Response: 响应数据
         """
         try:
-            resp = super().request(*args, **kwargs,proxies=proxies,verify=False)
+            resp = super().request(*args, **kwargs)
         except requests.ConnectionError as e:
             self.__request_retry_cnt += 1
             self.logger.warning(f"连接错误 {e.__str__()}")

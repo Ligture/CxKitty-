@@ -1,6 +1,7 @@
 import json
 from openai import OpenAI
-import config
+import config as cfg
+import httpx
 from cxapi.schema import QuestionModel
 from . import SearcherBase, SearcherResp
 from logger import Logger
@@ -17,6 +18,22 @@ class OpenAISearcher(SearcherBase):
         self.config = config
         self.client = OpenAI(api_key=config["api_key"], base_url=config["base_url"])
         self.logger = Logger("OpenAISearcher")
+        proxies = None
+        if cfg.HTTP_EN:
+            proxies = {
+                "http://": cfg.HTTP,
+                "https://": cfg.HTTPS,
+            }
+            self.logger.info(f"OpenAI 客户端已配置代理: {proxies}")
+
+        #    - trust_env=False: 强制客户端忽略 Clash 等设置的系统代理
+        http_client = httpx.Client(proxies=proxies, trust_env=False)
+
+        self.client = OpenAI(
+            api_key=config["api_key"],
+            base_url=config["base_url"],
+            http_client=http_client
+        )
 
     def invoke(self, question: QuestionModel) -> SearcherResp:
 

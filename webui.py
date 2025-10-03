@@ -6,6 +6,9 @@ CxKitty Web UI - 现代化网页界面
 import json
 import os
 import sys
+for key in ('http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY'):
+    if key in os.environ:
+        del os.environ[key]
 import time
 import threading
 import base64
@@ -462,15 +465,15 @@ def execute_tasks(session_id: str, class_indices: list, task_id: str):
 def process_exam(exam: ExamDto, task_id: str):
     """处理考试任务"""
     try:
+
+        
+        # 拉取元数据
+        exam.get_meta()
         socketio.emit('task_event', {
             'task_id': task_id,
             'type': 'exam_info',
             'message': f'考试：{exam.title}'
         }, namespace='/')
-        
-        # 拉取元数据
-        exam.get_meta()
-        
         # 开始考试
         exam.start()
         
@@ -730,12 +733,14 @@ def process_chapter_tasks(chapter: ChapterContainer, task_id: str):
                         'type': 'task_point_complete',
                         'message': f'✓ 任务点完成： {task_point.title}'
                     }, namespace='/')
-                
+
                 except Exception as e:
+                    # 使用 getattr 安全地获取 title，如果不存在则使用一个默认的名称
+                    task_title = getattr(task_point, 'title', '未知任务点')
                     socketio.emit('task_event', {
                         'task_id': task_id,
                         'type': 'error',
-                        'message': f'✗ 任务点处理失败： {task_point.title} - {str(e)}'
+                        'message': f'✗ 任务点处理失败： {task_title} - {str(e)}'
                     }, namespace='/')
             
             # 刷新状态

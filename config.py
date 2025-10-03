@@ -16,7 +16,7 @@ LOGS_PATH = Path(conf.get("log_path", "logs"))
 EXPORT_PATH = Path(conf.get("export_path"))
 FACE_PATH = Path(conf.get("face_image_path"))
 
-#HTTP配置
+#Proxy 配置
 HTPP: dict = conf.get("proxies", {})
 HTTP_EN: bool = HTPP.get("enable", True)
 HTTPS: list = HTPP.get("HTTPS", [])
