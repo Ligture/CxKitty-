@@ -4,6 +4,7 @@ class CxKittyApp {
     constructor() {
         this.socket = null;
         this.currentUser = null;
+        this.loggedInUsers = [];  // 存储所有已登录的用户
         this.selectedCourses = new Set();
         this.currentTaskId = null;
         this.qrCheckInterval = null;
@@ -15,6 +16,15 @@ class CxKittyApp {
         this.initSocketIO();
         this.initEventListeners();
         this.loadSessions();
+        this.loadLoggedInUsers();  // 加载已登录的用户列表
+        
+        // 页面关闭时清理（可选）
+        window.addEventListener('beforeunload', () => {
+            // 这里可以添加清理逻辑，如停止正在运行的任务
+            if (this.currentTaskId) {
+                // 发送停止任务请求（如果需要）
+            }
+        });
     }
 
     // Socket.IO 初始化
@@ -70,6 +80,18 @@ class CxKittyApp {
         // 退出登录
         document.querySelector('.btn-logout')?.addEventListener('click', () => {
             this.logout();
+        });
+        
+        // 用户切换器点击事件（动态绑定，因为元素可能还未创建）
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('user-switch-item')) {
+                const sessionId = e.target.dataset.sessionId;
+                this.switchUser(sessionId);
+            } else if (e.target.classList.contains('user-logout-btn')) {
+                e.stopPropagation();
+                const sessionId = e.target.dataset.sessionId;
+                this.logoutUser(sessionId);
+            }
         });
 
         // 开始任务
@@ -277,31 +299,191 @@ class CxKittyApp {
         }
     }
 
-    // 登录成功处理
-    onLoginSuccess() {
-        this.showToast('登录成功', 'success');
+    // 加载已登录的用户列表
+    async loadLoggedInUsers() {
+        try {
+            const response = await fetch('/api/users/list');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.loggedInUsers = result.users;
+                // 如果有用户登录，找到当前用户
+                if (this.loggedInUsers.length > 0 && result.current_session_id) {
+                    this.currentUser = this.loggedInUsers.find(u => u.session_id === result.current_session_id);
+                    if (this.currentUser) {
+                        this.updateUserUI();
+                    }
+                }
+                this.updateUserSwitcher();
+            }
+        } catch (error) {
+            console.error('加载用户列表失败:', error);
+        }
+    }
+    
+    // 更新用户切换器UI
+    updateUserSwitcher() {
+        const userInfo = document.querySelector('.user-info');
+        const userName = document.querySelector('.user-name');
         
-        // 更新UI
+        if (this.loggedInUsers.length === 0) {
+            return;
+        }
+        
+        // 如果有多个用户，显示用户切换器
+        if (this.loggedInUsers.length > 1) {
+            const existingSwitcher = document.querySelector('.user-switcher');
+            if (existingSwitcher) {
+                existingSwitcher.remove();
+            }
+            
+            const switcher = document.createElement('div');
+            switcher.className = 'user-switcher';
+            switcher.innerHTML = `
+                <button class="user-switcher-btn">
+                    <span>${this.currentUser ? this.currentUser.name : '选择用户'}</span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M4 6l4 4 4-4z"/>
+                    </svg>
+                </button>
+                <div class="user-switcher-dropdown">
+                    ${this.loggedInUsers.map(user => `
+                        <div class="user-switch-item ${user.session_id === (this.currentUser?.session_id || '') ? 'active' : ''}" 
+                             data-session-id="${user.session_id}">
+                            <div class="user-switch-info">
+                                <div class="user-switch-name">${user.name}</div>
+                                <div class="user-switch-meta">${user.phone}</div>
+                            </div>
+                            <button class="user-logout-btn" data-session-id="${user.session_id}" title="退出">×</button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            userName.parentNode.insertBefore(switcher, userName.nextSibling);
+            
+            // 绑定切换器点击事件
+            const switcherBtn = switcher.querySelector('.user-switcher-btn');
+            const dropdown = switcher.querySelector('.user-switcher-dropdown');
+            
+            switcherBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('show');
+            });
+            
+            // 点击外部关闭下拉菜单
+            document.addEventListener('click', () => {
+                dropdown.classList.remove('show');
+            });
+        }
+    }
+    
+    // 切换用户
+    async switchUser(sessionId) {
+        try {
+            const response = await fetch('/api/users/switch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ session_id: sessionId })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.currentUser = result.account;
+                this.selectedCourses.clear();  // 清空选中的课程
+                this.updateUserUI();
+                this.updateUserSwitcher();
+                
+                // 如果在课程页面，重新加载课程列表
+                const activePage = document.querySelector('.page.active');
+                if (activePage && activePage.classList.contains('page-courses')) {
+                    this.loadCourses();
+                }
+                
+                this.showToast(`已切换到：${this.currentUser.name}`, 'success');
+            } else {
+                this.showToast(result.message || '切换用户失败', 'error');
+            }
+        } catch (error) {
+            console.error('切换用户失败:', error);
+            this.showToast('网络错误，请重试', 'error');
+        }
+    }
+    
+    // 退出指定用户
+    async logoutUser(sessionId) {
+        try {
+            const response = await fetch('/api/users/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ session_id: sessionId })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // 重新加载用户列表
+                await this.loadLoggedInUsers();
+                
+                // 如果没有用户了，返回登录页
+                if (this.loggedInUsers.length === 0) {
+                    this.currentUser = null;
+                    document.querySelector('.user-info').style.display = 'none';
+                    document.querySelectorAll('.nav-link[data-page="courses"], .nav-link[data-page="tasks"]')
+                        .forEach(link => link.style.display = 'none');
+                    this.switchPage('login');
+                    this.showToast('所有用户已退出', 'success');
+                } else {
+                    this.updateUserUI();
+                    this.updateUserSwitcher();
+                    // 如果在课程页面，重新加载课程列表
+                    const activePage = document.querySelector('.page.active');
+                    if (activePage && activePage.classList.contains('page-courses')) {
+                        this.loadCourses();
+                    }
+                    this.showToast('用户已退出', 'success');
+                }
+            } else {
+                this.showToast(result.message || '退出失败', 'error');
+            }
+        } catch (error) {
+            console.error('退出用户失败:', error);
+            this.showToast('网络错误，请重试', 'error');
+        }
+    }
+    
+    // 更新用户UI
+    updateUserUI() {
         document.querySelector('.user-name').textContent = this.currentUser.name;
         document.querySelector('.user-info').style.display = 'flex';
         document.querySelectorAll('.nav-link[data-page="courses"], .nav-link[data-page="tasks"]')
             .forEach(link => link.style.display = 'block');
+    }
+
+    // 登录成功处理
+    onLoginSuccess() {
+        this.showToast('登录成功', 'success');
+        
+        // 重新加载用户列表
+        this.loadLoggedInUsers();
+        
+        // 更新UI
+        this.updateUserUI();
 
         // 切换到课程页面
         this.switchPage('courses');
     }
 
-    // 退出登录
+    // 退出登录（退出当前用户）
     logout() {
-        this.currentUser = null;
-        this.selectedCourses.clear();
-        
-        document.querySelector('.user-info').style.display = 'none';
-        document.querySelectorAll('.nav-link[data-page="courses"], .nav-link[data-page="tasks"]')
-            .forEach(link => link.style.display = 'none');
-        
-        this.switchPage('login');
-        this.showToast('已退出登录', 'success');
+        if (this.currentUser) {
+            this.logoutUser(this.currentUser.session_id);
+        }
     }
 
     // 加载课程列表

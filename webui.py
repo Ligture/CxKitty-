@@ -36,6 +36,8 @@ logger = Logger("WebUI")
 # 全局API实例字典，按session_id存储
 api_instances = {}
 task_threads = {}
+# 存储已登录的用户信息，按session_id分组
+logged_in_users = {}  # {flask_session_id: [{"puid": xxx, "name": xxx, "session_id": xxx}, ...]}
 
 
 def get_api(session_id: str) -> ChaoXingAPI:
@@ -86,25 +88,45 @@ def login_password():
     if not phone or not password:
         return jsonify({'success': False, 'message': '手机号和密码不能为空'}), 400
     
-    session_id = session.get('session_id', os.urandom(16).hex())
-    session['session_id'] = session_id
+    # 为新用户创建独立的session_id
+    user_session_id = os.urandom(16).hex()
     
-    api = get_api(session_id)
+    api = get_api(user_session_id)
     status, result = api.login_passwd(phone, password)
     
     if status:
         api.accinfo()
         save_session(api.session.ck_dump(), api.acc, password)
+        
+        # 获取Flask session ID
+        flask_session_id = session.get('flask_session_id', os.urandom(16).hex())
+        session['flask_session_id'] = flask_session_id
+        
+        # 保存用户信息到已登录用户列表
+        if flask_session_id not in logged_in_users:
+            logged_in_users[flask_session_id] = []
+        
+        user_info = {
+            'puid': api.acc.puid,
+            'name': api.acc.name,
+            'sex': api.acc.sex.name,
+            'phone': api.acc.phone,
+            'school': api.acc.school,
+            'stu_id': api.acc.stu_id,
+            'session_id': user_session_id
+        }
+        
+        # 检查用户是否已登录，避免重复
+        existing_user = next((u for u in logged_in_users[flask_session_id] if u['puid'] == api.acc.puid), None)
+        if not existing_user:
+            logged_in_users[flask_session_id].append(user_info)
+        
+        # 设置当前活跃用户
+        session['current_user_session_id'] = user_session_id
+        
         return jsonify({
             'success': True,
-            'account': {
-                'puid': api.acc.puid,
-                'name': api.acc.name,
-                'sex': api.acc.sex.name,
-                'phone': api.acc.phone,
-                'school': api.acc.school,
-                'stu_id': api.acc.stu_id
-            }
+            'account': user_info
         })
     else:
         return jsonify({'success': False, 'message': result.get('msg', '登录失败')}), 401
@@ -150,17 +172,37 @@ def qr_login_check():
     if qr_status['status']:
         api.accinfo()
         save_session(api.session.ck_dump(), api.acc)
+        
+        # 获取Flask session ID
+        flask_session_id = session.get('flask_session_id', os.urandom(16).hex())
+        session['flask_session_id'] = flask_session_id
+        
+        # 保存用户信息到已登录用户列表
+        if flask_session_id not in logged_in_users:
+            logged_in_users[flask_session_id] = []
+        
+        user_info = {
+            'puid': api.acc.puid,
+            'name': api.acc.name,
+            'sex': api.acc.sex.name,
+            'phone': api.acc.phone,
+            'school': api.acc.school,
+            'stu_id': api.acc.stu_id,
+            'session_id': session_id
+        }
+        
+        # 检查用户是否已登录，避免重复
+        existing_user = next((u for u in logged_in_users[flask_session_id] if u['puid'] == api.acc.puid), None)
+        if not existing_user:
+            logged_in_users[flask_session_id].append(user_info)
+        
+        # 设置当前活跃用户
+        session['current_user_session_id'] = session_id
+        
         return jsonify({
             'success': True,
             'status': 'success',
-            'account': {
-                'puid': api.acc.puid,
-                'name': api.acc.name,
-                'sex': api.acc.sex.name,
-                'phone': api.acc.phone,
-                'school': api.acc.school,
-                'stu_id': api.acc.stu_id
-            }
+            'account': user_info
         })
     
     qr_type = qr_status.get('type')
@@ -198,33 +240,129 @@ def login_session():
     if not target_session:
         return jsonify({'success': False, 'message': '会话不存在'}), 404
     
-    session_id = session.get('session_id', os.urandom(16).hex())
-    session['session_id'] = session_id
+    # 为新用户创建独立的session_id
+    user_session_id = os.urandom(16).hex()
     
-    api = get_api(session_id)
+    api = get_api(user_session_id)
     ck = ck2dict(target_session.ck)
     api.session.ck_load(ck)
     
     if not api.accinfo():
         return jsonify({'success': False, 'message': '会话已失效，请重新登录'}), 401
     
+    # 获取Flask session ID
+    flask_session_id = session.get('flask_session_id', os.urandom(16).hex())
+    session['flask_session_id'] = flask_session_id
+    
+    # 保存用户信息到已登录用户列表
+    if flask_session_id not in logged_in_users:
+        logged_in_users[flask_session_id] = []
+    
+    user_info = {
+        'puid': api.acc.puid,
+        'name': api.acc.name,
+        'sex': api.acc.sex.name,
+        'phone': api.acc.phone,
+        'school': api.acc.school,
+        'stu_id': api.acc.stu_id,
+        'session_id': user_session_id
+    }
+    
+    # 检查用户是否已登录，避免重复
+    existing_user = next((u for u in logged_in_users[flask_session_id] if u['puid'] == api.acc.puid), None)
+    if not existing_user:
+        logged_in_users[flask_session_id].append(user_info)
+    
+    # 设置当前活跃用户
+    session['current_user_session_id'] = user_session_id
+    
     return jsonify({
         'success': True,
-        'account': {
-            'puid': api.acc.puid,
-            'name': api.acc.name,
-            'sex': api.acc.sex.name,
-            'phone': api.acc.phone,
-            'school': api.acc.school,
-            'stu_id': api.acc.stu_id
-        }
+        'account': user_info
     })
+
+
+@app.route('/api/users/list')
+def get_users_list():
+    """获取当前已登录的所有用户"""
+    flask_session_id = session.get('flask_session_id')
+    if not flask_session_id or flask_session_id not in logged_in_users:
+        return jsonify({'success': True, 'users': []})
+    
+    current_session_id = session.get('current_user_session_id')
+    users = logged_in_users[flask_session_id]
+    
+    return jsonify({
+        'success': True,
+        'users': users,
+        'current_session_id': current_session_id
+    })
+
+
+@app.route('/api/users/switch', methods=['POST'])
+def switch_user():
+    """切换当前活跃用户"""
+    data = request.json
+    target_session_id = data.get('session_id')
+    
+    if not target_session_id:
+        return jsonify({'success': False, 'message': 'session_id不能为空'}), 400
+    
+    flask_session_id = session.get('flask_session_id')
+    if not flask_session_id or flask_session_id not in logged_in_users:
+        return jsonify({'success': False, 'message': '没有已登录的用户'}), 401
+    
+    # 验证目标session_id是否存在
+    users = logged_in_users[flask_session_id]
+    target_user = next((u for u in users if u['session_id'] == target_session_id), None)
+    
+    if not target_user:
+        return jsonify({'success': False, 'message': '目标用户不存在'}), 404
+    
+    # 切换当前用户
+    session['current_user_session_id'] = target_session_id
+    
+    return jsonify({
+        'success': True,
+        'account': target_user
+    })
+
+
+@app.route('/api/users/logout', methods=['POST'])
+def logout_user():
+    """退出指定用户"""
+    data = request.json
+    target_session_id = data.get('session_id')
+    
+    if not target_session_id:
+        return jsonify({'success': False, 'message': 'session_id不能为空'}), 400
+    
+    flask_session_id = session.get('flask_session_id')
+    if not flask_session_id or flask_session_id not in logged_in_users:
+        return jsonify({'success': False, 'message': '没有已登录的用户'}), 401
+    
+    # 从已登录用户列表中移除
+    users = logged_in_users[flask_session_id]
+    logged_in_users[flask_session_id] = [u for u in users if u['session_id'] != target_session_id]
+    
+    # 清理API实例
+    if target_session_id in api_instances:
+        del api_instances[target_session_id]
+    
+    # 如果是当前用户，切换到第一个用户或清空
+    if session.get('current_user_session_id') == target_session_id:
+        if logged_in_users[flask_session_id]:
+            session['current_user_session_id'] = logged_in_users[flask_session_id][0]['session_id']
+        else:
+            session.pop('current_user_session_id', None)
+    
+    return jsonify({'success': True})
 
 
 @app.route('/api/classes')
 def get_classes():
     """获取课程列表"""
-    session_id = session.get('session_id')
+    session_id = session.get('current_user_session_id')
     if not session_id:
         return jsonify({'success': False, 'message': '未登录'}), 401
     
@@ -259,7 +397,7 @@ def get_classes():
 @app.route('/api/class/<int:class_index>/chapters')
 def get_chapters(class_index):
     """获取课程章节"""
-    session_id = session.get('session_id')
+    session_id = session.get('current_user_session_id')
     if not session_id:
         return jsonify({'success': False, 'message': '未登录'}), 401
     
@@ -306,7 +444,7 @@ def get_chapters(class_index):
 @app.route('/api/task/start', methods=['POST'])
 def start_task():
     """开始任务"""
-    session_id = session.get('session_id')
+    session_id = session.get('current_user_session_id')
     if not session_id:
         return jsonify({'success': False, 'message': '未登录'}), 401
     
@@ -800,6 +938,8 @@ def handle_connect():
 def handle_disconnect():
     """WebSocket断开"""
     logger.info('WebSocket客户端已断开')
+    # 清理该客户端的任务（如果需要）
+    # 注意：这里不清理用户登录状态，只在明确退出时清理
 
 
 if __name__ == '__main__':
