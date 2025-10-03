@@ -19,6 +19,13 @@ class CxKittyApp {
 
     // Socket.IO 初始化
     initSocketIO() {
+        // 检查 Socket.IO 是否加载
+        if (typeof io === 'undefined') {
+            console.warn('Socket.IO 未加载，实时功能将不可用');
+            this.socket = null;
+            return;
+        }
+        
         this.socket = io();
         
         this.socket.on('connected', (data) => {
@@ -389,6 +396,11 @@ class CxKittyApp {
 
     // 处理任务事件
     handleTaskEvent(data) {
+        if (!this.socket) {
+            console.warn('Socket未初始化，无法处理事件');
+            return;
+        }
+        
         if (data.task_id !== this.currentTaskId) {
             return;
         }
