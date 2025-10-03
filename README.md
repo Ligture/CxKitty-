@@ -12,6 +12,36 @@
 
 <span style="color: red"><b>Ps: 本项目不提供任何题库资源，有相关测试需求者请按照文档自行解决。本项目仅供学习参考使用，请在下载部署后 24 小时内删除，由于使用本项目不当所造成的挂科或不良学习记录作者一概不负责。</b></span>
 
+## 🌐 Web UI
+
+**全新的现代化网页界面已经上线！**
+
+除了原有的终端UI（TUI），现在可以使用全新的Web UI，具有：
+- 🎨 现代化设计，美观实用
+- 📱 响应式布局，支持移动端
+- 🖱️ 图形化操作，零门槛使用
+- ⚡ 实时进度展示和日志输出
+- 🔄 所有TUI功能完整支持
+
+### 启动 Web UI
+
+```bash
+# 安装依赖
+pip install flask flask-socketio pillow
+
+# 启动服务
+python3 webui.py
+
+# 或使用启动脚本
+./run_webui.sh
+```
+
+访问 http://127.0.0.1:5000 即可使用
+
+详细说明请查看 [WEBUI_README.md](WEBUI_README.md)
+
+---
+
 ## ✨Features
 
 ### Supports
