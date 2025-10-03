@@ -163,6 +163,8 @@ class QuestionResolver:
     persubmit_delay: float  # 每次提交的延迟
     auto_final_submit: bool  # 是否自动交卷
     cb_confirm_submit: Callable[[int, int, list, QAQDtoBase], bool]  # 交卷确认回调函数
+    cb_progress: Optional[Callable]  # 答题进度回调函数
+    cb_submit: Optional[Callable]  # 答题提交回调函数
 
     tui_ctx: Layout
 
@@ -170,6 +172,7 @@ class QuestionResolver:
     completed_cnt: int  # 已答题计数
     incompleted_cnt: int  # 未答题计数
     finish_flag: bool  # 答题完毕标志
+    total_cnt: int  # 总题数
 
     def __init__(
         self,
@@ -179,6 +182,8 @@ class QuestionResolver:
         persubmit_delay: float = 1.0,
         auto_final_submit: bool = True,
         cb_confirm_submit: Callable[[int, int, list, QAQDtoBase], bool] = None,
+        cb_progress: Optional[Callable] = None,
+        cb_submit: Optional[Callable] = None,
     ) -> None:
         """constructor
         Args:
@@ -188,6 +193,8 @@ class QuestionResolver:
             persubmit_delay: 每次提交的延迟
             auto_final_submit: 是否自动交卷
             cb_confirm_submit： 交卷确认回调函数(completed_cnt, incompleted_cnt, mistakes, exam_dto)
+            cb_progress: 答题进度回调函数(index, total, completed, incompleted, question, answer_status)
+            cb_submit: 答题提交回调函数(index, question, is_success, result_data)
         """
         self.logger = Logger("QuestionResolver")
         self.exam_dto = exam_dto
@@ -196,6 +203,8 @@ class QuestionResolver:
         self.persubmit_delay = persubmit_delay
         self.auto_final_submit = auto_final_submit
         self.cb_confirm_submit = cb_confirm_submit
+        self.cb_progress = cb_progress
+        self.cb_submit = cb_submit
         self.searcher = load_searcher()  # 从配置文件加载搜索器
 
         self.tui_ctx = Layout(name="Resolver")  # 当前类所属 TUI 的 ctx
@@ -203,6 +212,7 @@ class QuestionResolver:
         self.completed_cnt = 0
         self.incompleted_cnt = 0
         self.finish_flag = False
+        self.total_cnt = 0
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         yield self.tui_ctx
@@ -344,6 +354,9 @@ class QuestionResolver:
         refresh_title()
         # 迭代答题接口, 遍历所有题目
         for index, question in self.exam_dto:
+            # 更新总题数
+            self.total_cnt = index + 1
+            
             # 调用搜索器
             results = self.searcher.invoke(question)
 
@@ -371,6 +384,10 @@ class QuestionResolver:
             else:
                 self.completed_cnt += 1
             refresh_title()
+            
+            # 调用进度回调
+            if self.cb_progress:
+                self.cb_progress(index, self.total_cnt, self.completed_cnt, self.incompleted_cnt, question, status)
 
             # 单题提交
             time.sleep(self.persubmit_delay)  # 提交延迟
@@ -385,6 +402,9 @@ class QuestionResolver:
                         f"{e.__class__.__name__} {e.__str__()}", title="提交失败！", border_style="red"
                     )
                 )
+                # 调用提交失败回调
+                if self.cb_submit:
+                    self.cb_submit(index, question, False, str(e))
             else:
                 self.logger.info(f"提交成功 [{self.exam_dto}]")
                 msg_console.update(
@@ -394,6 +414,9 @@ class QuestionResolver:
                         border_style="green",
                     )
                 )
+                # 调用提交成功回调
+                if self.cb_submit:
+                    self.cb_submit(index, question, True, result)
             time.sleep(1.0)
 
         # 答题完毕处理

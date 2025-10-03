@@ -409,6 +409,22 @@ class CxKittyApp {
         const progressText = document.getElementById('progress-text');
         const progressFill = document.getElementById('progress-fill');
 
+        // 处理特殊事件类型
+        switch (data.type) {
+            case 'video_progress':
+                this.handleVideoProgress(data);
+                return;
+            case 'video_report':
+                this.handleVideoReport(data);
+                break;
+            case 'question_progress':
+                this.handleQuestionProgress(data);
+                return;
+            case 'question_submit':
+                this.handleQuestionSubmit(data);
+                break;
+        }
+
         // 添加日志条目
         const logEntry = document.createElement('div');
         logEntry.className = 'log-entry';
@@ -448,7 +464,80 @@ class CxKittyApp {
             progressFill.style.width = '100%';
             this.showToast('任务执行完成', 'success');
             this.currentTaskId = null;
+            // 隐藏进度显示
+            document.getElementById('video-progress-container').style.display = 'none';
+            document.getElementById('question-progress-container').style.display = 'none';
         }
+    }
+
+    // 处理视频播放进度
+    handleVideoProgress(data) {
+        const container = document.getElementById('video-progress-container');
+        container.style.display = 'block';
+        
+        const videoData = data.data;
+        document.getElementById('video-title').textContent = videoData.title;
+        document.getElementById('video-progress-fill').style.width = videoData.progress_percent + '%';
+        
+        // 格式化时间
+        const formatTime = (seconds) => {
+            const min = Math.floor(seconds / 60);
+            const sec = seconds % 60;
+            return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+        };
+        
+        document.getElementById('video-current-time').textContent = formatTime(videoData.current_time);
+        document.getElementById('video-duration').textContent = formatTime(videoData.duration);
+        document.getElementById('video-speed').textContent = `x${videoData.speed}`;
+        document.getElementById('video-report-timer').textContent = `${videoData.next_report}s后上报`;
+    }
+
+    // 处理视频上报事件
+    handleVideoReport(data) {
+        const logContent = document.getElementById('log-content');
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry ' + (data.data.is_success ? 'success' : 'error');
+        
+        const timestamp = new Date().toLocaleTimeString();
+        logEntry.textContent = `[${timestamp}] ${data.message}`;
+        logContent.appendChild(logEntry);
+        logContent.scrollTop = logContent.scrollHeight;
+    }
+
+    // 处理答题进度
+    handleQuestionProgress(data) {
+        const container = document.getElementById('question-progress-container');
+        container.style.display = 'block';
+        
+        const qData = data.data;
+        document.getElementById('question-total').textContent = qData.total;
+        document.getElementById('question-completed').textContent = qData.completed;
+        document.getElementById('question-failed').textContent = qData.incompleted;
+        
+        const question = qData.question;
+        const currentQuestion = document.getElementById('current-question');
+        currentQuestion.innerHTML = `
+            <div class="question-info">
+                <span class="question-type">${question.type}</span>
+                <span class="question-status ${qData.answer_status ? 'status-success' : 'status-failed'}">
+                    ${qData.answer_status ? '✓ 已匹配' : '✗ 未匹配'}
+                </span>
+            </div>
+            <div class="question-text">${question.value}</div>
+            <div class="question-answer">答案: ${question.answer}</div>
+        `;
+    }
+
+    // 处理答题提交事件
+    handleQuestionSubmit(data) {
+        const logContent = document.getElementById('log-content');
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry ' + (data.data.is_success ? 'success' : 'error');
+        
+        const timestamp = new Date().toLocaleTimeString();
+        logEntry.textContent = `[${timestamp}] ${data.message}`;
+        logContent.appendChild(logEntry);
+        logContent.scrollTop = logContent.scrollHeight;
     }
 
     // 加载配置
