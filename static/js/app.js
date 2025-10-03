@@ -416,13 +416,13 @@ class CxKittyApp {
                 return;
             case 'video_report':
                 this.handleVideoReport(data);
-                break;
+                return;
             case 'question_progress':
                 this.handleQuestionProgress(data);
                 return;
             case 'question_submit':
                 this.handleQuestionSubmit(data);
-                break;
+                return;
         }
 
         // 添加日志条目
