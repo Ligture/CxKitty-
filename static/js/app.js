@@ -341,7 +341,7 @@ class CxKittyApp {
             const switcher = document.createElement('div');
             switcher.className = 'user-switcher';
             switcher.innerHTML = `
-                <button class="user-switcher-btn">
+                <button class="user-switcher-btn" aria-label="切换用户">
                     <span>${this.currentUser ? this.currentUser.name : '选择用户'}</span>
                     <span class="user-count-badge">${this.loggedInUsers.length}</span>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -349,16 +349,28 @@ class CxKittyApp {
                     </svg>
                 </button>
                 <div class="user-switcher-dropdown">
+                    <div class="user-switcher-header">已登录的用户</div>
                     ${this.loggedInUsers.map(user => `
                         <div class="user-switch-item ${user.session_id === (this.currentUser?.session_id || '') ? 'active' : ''}" 
                              data-session-id="${user.session_id}">
                             <div class="user-switch-info">
-                                <div class="user-switch-name">${user.name}</div>
+                                <div class="user-switch-name">
+                                    ${user.name}
+                                    ${user.session_id === (this.currentUser?.session_id || '') ? '<span class="active-indicator">当前</span>' : ''}
+                                </div>
                                 <div class="user-switch-meta">${user.phone}</div>
                             </div>
-                            <button class="user-logout-btn" data-session-id="${user.session_id}" title="退出此用户">×</button>
+                            <button class="user-logout-btn" data-session-id="${user.session_id}" title="退出此用户" aria-label="退出 ${user.name}">×</button>
                         </div>
                     `).join('')}
+                    <div class="user-switcher-footer">
+                        <button class="btn-add-user" onclick="window.app.switchPage('login')">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                            </svg>
+                            登录其他用户
+                        </button>
+                    </div>
                 </div>
             `;
             
@@ -385,7 +397,16 @@ class CxKittyApp {
     
     // 切换用户
     async switchUser(sessionId) {
+        // 如果已经是当前用户，不需要切换
+        if (this.currentUser && this.currentUser.session_id === sessionId) {
+            this.showToast('已经是当前用户', 'info');
+            return;
+        }
+        
         try {
+            // 显示加载提示
+            this.showToast('正在切换用户...', 'info');
+            
             const response = await fetch('/api/users/switch', {
                 method: 'POST',
                 headers: {
@@ -405,7 +426,7 @@ class CxKittyApp {
                 // 如果在课程页面，重新加载课程列表
                 const activePage = document.querySelector('.page.active');
                 if (activePage && activePage.classList.contains('page-courses')) {
-                    this.loadCourses();
+                    await this.loadCourses();
                 }
                 
                 this.showToast(`已切换到：${this.currentUser.name}`, 'success');
@@ -502,6 +523,15 @@ class CxKittyApp {
     async loadCourses() {
         const coursesGrid = document.getElementById('courses-grid');
         coursesGrid.innerHTML = '<p class="loading-text">加载中...</p>';
+        
+        // 显示当前用户指示器
+        const userIndicator = document.getElementById('current-user-indicator');
+        if (this.currentUser && this.loggedInUsers.length > 1) {
+            userIndicator.textContent = `当前用户：${this.currentUser.name}`;
+            userIndicator.style.display = 'block';
+        } else {
+            userIndicator.style.display = 'none';
+        }
 
         try {
             const response = await fetch('/api/classes');
