@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  cxkitty-webui:
+    build:
+      context: .
+      dockerfile: Dockerfile.webui
+    container_name: cxkitty-webui
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./session:/app/session
+      - ./logs:/app/logs
+      - ./export:/app/export
+      - ./faces:/app/faces
+      - ./config.yml:/app/config.yml:ro
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - cxkitty-network
+
+networks:
+  cxkitty-network:
+    driver: bridge
