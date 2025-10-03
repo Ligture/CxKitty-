@@ -480,12 +480,49 @@ def process_exam(exam: ExamDto, task_id: str):
             'message': f'考试已开始，剩余时间：{exam.remain_time_str}'
         }, namespace='/')
         
+        # 定义答题回调函数
+        def on_question_progress(index, total, completed, incompleted, question, answer_status):
+            """答题进度回调"""
+            socketio.emit('task_event', {
+                'task_id': task_id,
+                'type': 'question_progress',
+                'message': f'答题进度: {index + 1}/{total}',
+                'data': {
+                    'index': index,
+                    'total': total,
+                    'completed': completed,
+                    'incompleted': incompleted,
+                    'question': {
+                        'id': question.id,
+                        'type': question.type.name,
+                        'value': question.value[:50] + '...' if len(question.value) > 50 else question.value,
+                        'answer': str(question.answer) if answer_status else '未匹配'
+                    },
+                    'answer_status': answer_status
+                }
+            }, namespace='/')
+        
+        def on_question_submit(index, question, is_success, result_data):
+            """答题提交回调"""
+            socketio.emit('task_event', {
+                'task_id': task_id,
+                'type': 'question_submit',
+                'message': f'提交{"成功" if is_success else "失败"}: 第{index + 1}题',
+                'data': {
+                    'index': index,
+                    'is_success': is_success,
+                    'result': result_data
+                }
+            }, namespace='/')
+        
         # 实例化解决器
         resolver = QuestionResolver(
             exam_dto=exam,
             fallback_save=False,
             fallback_fuzzer=config.EXAM.get("fallback_fuzzer", False),
             persubmit_delay=config.EXAM.get("persubmit_delay", 15),
+            cb_progress=on_question_progress,
+            cb_submit=on_question_submit
         )
         
         # 执行答题
@@ -554,10 +591,43 @@ def process_chapter_tasks(chapter: ChapterContainer, task_id: str):
                             'message': f'处理任务点： {task_point.title} [{task_type}]'
                         }, namespace='/')
 
+                        # 创建带WebSocket回调的视频解决器
+                        def on_video_progress(playing_time, duration, speed, next_report_time):
+                            """视频播放进度回调"""
+                            socketio.emit('task_event', {
+                                'task_id': task_id,
+                                'type': 'video_progress',
+                                'message': f'播放中： {task_point.title}',
+                                'data': {
+                                    'title': task_point.title,
+                                    'current_time': playing_time,
+                                    'duration': duration,
+                                    'speed': speed,
+                                    'next_report': next_report_time,
+                                    'progress_percent': round(playing_time / duration * 100, 1) if duration > 0 else 0
+                                }
+                            }, namespace='/')
+                        
+                        def on_video_report(playing_time, duration, is_success, result_data=None):
+                            """视频上报回调"""
+                            socketio.emit('task_event', {
+                                'task_id': task_id,
+                                'type': 'video_report',
+                                'message': f'上报{"成功" if is_success else "失败"}: {playing_time}/{duration}秒',
+                                'data': {
+                                    'playing_time': playing_time,
+                                    'duration': duration,
+                                    'is_success': is_success,
+                                    'result': result_data
+                                }
+                            }, namespace='/')
+                        
                         resolver = MediaPlayResolver(
                             media_dto=task_point,
                             speed=config.VIDEO["speed"],
                             report_rate=config.VIDEO["report_rate"],
+                            cb_progress=on_video_progress,
+                            cb_report=on_video_report
                         )
                         resolver.execute()
                         socketio.emit('task_event', {
@@ -603,10 +673,47 @@ def process_chapter_tasks(chapter: ChapterContainer, task_id: str):
                                 'type': 'task_point_start',
                                 'message': f'处理任务点： {task_point.title} [{task_type}]'
                             }, namespace='/')
+                            # 定义作业答题回调函数
+                            def on_work_progress(index, total, completed, incompleted, question, answer_status):
+                                """作业答题进度回调"""
+                                socketio.emit('task_event', {
+                                    'task_id': task_id,
+                                    'type': 'question_progress',
+                                    'message': f'答题进度: {index + 1}/{total}',
+                                    'data': {
+                                        'index': index,
+                                        'total': total,
+                                        'completed': completed,
+                                        'incompleted': incompleted,
+                                        'question': {
+                                            'id': question.id,
+                                            'type': question.type.name,
+                                            'value': question.value[:50] + '...' if len(question.value) > 50 else question.value,
+                                            'answer': str(question.answer) if answer_status else '未匹配'
+                                        },
+                                        'answer_status': answer_status
+                                    }
+                                }, namespace='/')
+                            
+                            def on_work_submit(index, question, is_success, result_data):
+                                """作业答题提交回调"""
+                                socketio.emit('task_event', {
+                                    'task_id': task_id,
+                                    'type': 'question_submit',
+                                    'message': f'提交{"成功" if is_success else "失败"}: 第{index + 1}题',
+                                    'data': {
+                                        'index': index,
+                                        'is_success': is_success,
+                                        'result': result_data
+                                    }
+                                }, namespace='/')
+                            
                             resolver = QuestionResolver(
                                 exam_dto=task_point,
                                 fallback_save=config.WORK["fallback_save"],
                                 fallback_fuzzer=config.WORK["fallback_fuzzer"],
+                                cb_progress=on_work_progress,
+                                cb_submit=on_work_submit
                             )
                             resolver.execute()
                             socketio.emit('task_event', {

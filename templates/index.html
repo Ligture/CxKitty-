@@ -111,6 +111,51 @@
                         </div>
                         <p class="progress-text" id="progress-text">等待开始...</p>
                     </div>
+                    
+                    <!-- 视频播放进度显示 -->
+                    <div class="video-progress-container" id="video-progress-container" style="display: none;">
+                        <div class="progress-card">
+                            <h3>视频播放进度</h3>
+                            <div class="video-title" id="video-title">-</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="video-progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-info">
+                                <span id="video-current-time">00:00</span> / <span id="video-duration">00:00</span>
+                                <span class="speed-badge" id="video-speed">x1.0</span>
+                                <span class="report-timer" id="video-report-timer">下次上报: -</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 答题进度显示 -->
+                    <div class="question-progress-container" id="question-progress-container" style="display: none;">
+                        <div class="progress-card">
+                            <h3>答题进度</h3>
+                            <div class="question-stats">
+                                <div class="stat-item stat-total">
+                                    <span class="stat-label">总题数</span>
+                                    <span class="stat-value" id="question-total">0</span>
+                                </div>
+                                <div class="stat-item stat-completed">
+                                    <span class="stat-label">已完成</span>
+                                    <span class="stat-value" id="question-completed">0</span>
+                                </div>
+                                <div class="stat-item stat-failed">
+                                    <span class="stat-label">未匹配</span>
+                                    <span class="stat-value" id="question-failed">0</span>
+                                </div>
+                            </div>
+                            <div class="current-question" id="current-question">
+                                <div class="question-info">
+                                    <span class="question-type">-</span>
+                                    <span class="question-status">-</span>
+                                </div>
+                                <div class="question-text">等待开始...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="task-log" id="task-log">
                         <div class="log-header">执行日志</div>
                         <div class="log-content" id="log-content"></div>

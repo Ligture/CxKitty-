@@ -1,4 +1,5 @@
 import time
+from typing import Callable, Optional
 
 from rich.align import Align
 from rich.console import Console, ConsoleOptions, RenderResult
@@ -22,21 +23,34 @@ class MediaPlayResolver:
     speed: float  # 播放倍速
     report_rate: int  # 播放汇报率
     duration: int  # 媒体长度
+    cb_progress: Optional[Callable]  # 进度回调函数
+    cb_report: Optional[Callable]  # 上报回调函数
 
     tui_ctx: Layout
 
-    def __init__(self, media_dto: PointVideoDto, speed: float = 1.0, report_rate: int = 58) -> None:
+    def __init__(
+        self, 
+        media_dto: PointVideoDto, 
+        speed: float = 1.0, 
+        report_rate: int = 58,
+        cb_progress: Optional[Callable] = None,
+        cb_report: Optional[Callable] = None
+    ) -> None:
         """constructor
         Args:
             media_dto: 实例化的媒体接口对象
             speed: 播放倍速
             report_rate: 播放汇报率
+            cb_progress: 进度回调函数(playing_time, duration, speed, next_report_time)
+            cb_report: 上报回调函数(playing_time, duration, is_success, result_data)
         """
         self.logger = Logger("MediaPlayResolver")
         self.media_dto = media_dto
         self.speed = speed
         self.report_rate = report_rate
         self.duration = self.media_dto.duration
+        self.cb_progress = cb_progress
+        self.cb_report = cb_report
 
         self.tui_ctx = Layout(name="Resolver")  # 当前类所属 TUI 的 ctx
 
@@ -66,6 +80,9 @@ class MediaPlayResolver:
                 completed=playing_time,
                 description=f"playing... [blue]{playing_time // 60:02d}:{playing_time % 60:02d}[/blue] [yellow]{self.report_rate - s_counter}s后汇报[/yellow](X{self.speed})",
             )
+            # 调用进度回调
+            if self.cb_progress:
+                self.cb_progress(playing_time, self.duration, self.speed, self.report_rate - s_counter)
 
         self.logger.info(f"开始播放 倍速=x{self.speed} 汇报率={self.report_rate}s [{self.media_dto}]")
         while True:
@@ -81,6 +98,9 @@ class MediaPlayResolver:
                             border_style="red",
                         )
                     )
+                    # 调用上报失败回调
+                    if self.cb_report:
+                        self.cb_report(playing_time, self.duration, False, str(e))
                 else:
                     info.update(
                         Panel(
@@ -92,6 +112,9 @@ class MediaPlayResolver:
                             border_style="green",
                         )
                     )
+                    # 调用上报成功回调
+                    if self.cb_report:
+                        self.cb_report(playing_time, self.duration, True, report_result)
                     if report_result.get("isPassed") == True:
                         playing_time = self.duration  # 强制100%, 解决强迫症
                         self.logger.info(f"播放完毕")
