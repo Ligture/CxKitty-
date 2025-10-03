@@ -242,12 +242,13 @@ def get_classes():
                 'course_id': cls.course_id,
                 'class_id': cls.class_id,
                 'name': cls.name,
-                'teacher': cls.teacher,
-                'image': cls.image,
-                'status': cls.status.name,
-                'is_exam': cls.is_exam
+                'teacher': cls.teacher_name,
+                #'image': cls.image,
+                'status': cls.state.name,
+                #'is_exam': cls.is_exam
             }
-            for idx, cls in enumerate(classes)
+            for idx, cls in enumerate(classes.classes)
+
         ]
     })
 
@@ -349,7 +350,7 @@ def execute_tasks(session_id: str, class_indices: list, task_id: str):
                 'task_id': task_id,
                 'type': 'captcha',
                 'message': f'正在识别验证码，第 {times} 次...'
-            }, namespace='/', broadcast=True)
+            }, namespace='/')
         
         def on_captcha_before(status: bool, code: str):
             if status:
@@ -357,27 +358,27 @@ def execute_tasks(session_id: str, class_indices: list, task_id: str):
                     'task_id': task_id,
                     'type': 'captcha_success',
                     'message': f'验证码识别成功：{code}'
-                }, namespace='/', broadcast=True)
+                }, namespace='/')
             else:
                 socketio.emit('task_event', {
                     'task_id': task_id,
                     'type': 'captcha_failed',
                     'message': f'验证码识别失败：{code}'
-                }, namespace='/', broadcast=True)
+                }, namespace='/')
         
         def on_face_detection_after(orig_url):
             socketio.emit('task_event', {
                 'task_id': task_id,
                 'type': 'face_detection',
                 'message': '开始人脸识别'
-            }, namespace='/', broadcast=True)
+            }, namespace='/')
         
         def on_face_detection_before(object_id: str, image_path):
             socketio.emit('task_event', {
                 'task_id': task_id,
                 'type': 'face_detection_success',
                 'message': '人脸识别成功'
-            }, namespace='/', broadcast=True)
+            }, namespace='/')
         
         api.session.reg_captcha_after(on_captcha_after)
         api.session.reg_captcha_before(on_captcha_before)
@@ -391,7 +392,7 @@ def execute_tasks(session_id: str, class_indices: list, task_id: str):
                     'task_id': task_id,
                     'type': 'chapter_start',
                     'message': f'📚 开始处理课程：{task_obj.name}'
-                }, namespace='/', broadcast=True)
+                }, namespace='/')
                 
                 try:
                     process_chapter_tasks(task_obj, task_id)
@@ -400,20 +401,21 @@ def execute_tasks(session_id: str, class_indices: list, task_id: str):
                         'task_id': task_id,
                         'type': 'chapter_complete',
                         'message': f'✓ 课程完成：{task_obj.name}'
-                    }, namespace='/', broadcast=True)
+                    }, namespace='/')
                 except Exception as e:
                     socketio.emit('task_event', {
                         'task_id': task_id,
                         'type': 'error',
                         'message': f'✗ 课程处理失败：{task_obj.name} - {str(e)}'
-                    }, namespace='/', broadcast=True)
+                    }, namespace='/')
+                    print(e)
             
             elif isinstance(task_obj, ExamDto):
                 socketio.emit('task_event', {
                     'task_id': task_id,
                     'type': 'exam_start',
                     'message': '📝 开始考试模式'
-                }, namespace='/', broadcast=True)
+                }, namespace='/')
                 try:
                     process_exam(task_obj, task_id)
                 except Exception as e:
@@ -421,7 +423,7 @@ def execute_tasks(session_id: str, class_indices: list, task_id: str):
                         'task_id': task_id,
                         'type': 'error',
                         'message': f'✗ 考试处理失败: {str(e)}'
-                    }, namespace='/', broadcast=True)
+                    }, namespace='/')
             
             elif isinstance(task_obj, list):
                 # 考试列表，需要用户选择
@@ -436,13 +438,13 @@ def execute_tasks(session_id: str, class_indices: list, task_id: str):
                             'status': exam.status.name if hasattr(exam, 'status') else 'UNKNOWN'
                         } for exam in task_obj
                     ]
-                }, namespace='/', broadcast=True)
+                }, namespace='/')
         
         socketio.emit('task_event', {
             'task_id': task_id,
             'type': 'complete',
             'message': '✓ 所有任务已完成'
-        }, namespace='/', broadcast=True)
+        }, namespace='/')
         
     except Exception as e:
         logger.error(f"任务执行异常: {e}", exc_info=True)
@@ -450,7 +452,7 @@ def execute_tasks(session_id: str, class_indices: list, task_id: str):
             'task_id': task_id,
             'type': 'error',
             'message': f'✗ 任务执行出错: {str(e)}'
-        }, namespace='/', broadcast=True)
+        }, namespace='/')
     finally:
         # 清理任务线程
         if task_id in task_threads:
@@ -507,85 +509,127 @@ def process_exam(exam: ExamDto, task_id: str):
 def process_chapter_tasks(chapter: ChapterContainer, task_id: str):
     """处理章节任务"""
     try:
-        # 获取任务点
-        for layer in chapter.layers:
-            if not layer.is_leaf:
-                continue
-            
+        #拉取最新状态
+        chapter.fetch_point_status()
+        for chapter_index in range(len(chapter)):
+            layer = chapter.chapters[chapter_index]
             socketio.emit('task_event', {
                 'task_id': task_id,
                 'type': 'info',
                 'message': f'检查章节：{layer.name}'
-            }, namespace='/', broadcast=True)
-            
-            try:
-                points = layer.fetch_point()
-            except ChapterNotOpened:
-                socketio.emit('task_event', {
-                    'task_id': task_id,
-                    'type': 'warning',
-                    'message': f'⚠ 章节未开放：{layer.name}'
-                }, namespace='/', broadcast=True)
-                continue
-            
-            for task_point in points:
+            }, namespace='/')
+
+            refresh_flag = True
+            for task_point in chapter[chapter_index]:
+                try:
+                    task_point.fetch_attachment()
+
+                except ChapterNotOpened:
+                    if refresh_flag:
+                        chapter.refresh_chapter(chapter_index - 1)
+                        refresh_flag = False
+                        continue
+                    else:
+                        socketio.emit('task_event', {
+                            'task_id': task_id,
+                            'type': 'warning',
+                            'message': f'⚠ 章节未开放：{layer.name}'
+                        }, namespace='/')
+                        continue
+                refresh_flag = True
+
                 task_type = task_point.__class__.__name__
-                socketio.emit('task_event', {
-                    'task_id': task_id,
-                    'type': 'task_point_start',
-                    'message': f'处理任务点：{task_point.title} [{task_type}]'
-                }, namespace='/', broadcast=True)
                 
                 try:
                     # 视频任务
                     if config.VIDEO_EN and task_type == 'PointVideoDto':
-                        resolver = MediaPlayResolver(task_point)
-                        resolver.execute()
+                        if not task_point.parse_attachment():
+                            continue
+                        # 拉取任务点数据
+                        if not task_point.fetch():
+                            continue
                         socketio.emit('task_event', {
                             'task_id': task_id,
-                            'type': 'info',
-                            'message': f'视频任务完成，等待 {config.VIDEO_WAIT} 秒'
-                        }, namespace='/', broadcast=True)
-                        time.sleep(config.VIDEO_WAIT)
-                    
-                    # 文档任务
-                    elif config.DOCUMENT_EN and task_type == 'PointDocumentDto':
-                        resolver = DocumetResolver(task_point)
-                        resolver.execute()
-                        socketio.emit('task_event', {
-                            'task_id': task_id,
-                            'type': 'info',
-                            'message': f'文档任务完成，等待 {config.DOCUMENT_WAIT} 秒'
-                        }, namespace='/', broadcast=True)
-                        time.sleep(config.DOCUMENT_WAIT)
-                    
-                    # 作业/测验任务
-                    elif config.WORK_EN and task_type == 'PointWorkDto':
-                        resolver = QuestionResolver(
-                            exam_dto=task_point,
-                            fallback_save=config.WORK["fallback_save"],
-                            fallback_fuzzer=config.WORK["fallback_fuzzer"],
+                            'type': 'task_point_start',
+                            'message': f'处理任务点： {task_point.title} [{task_type}]'
+                        }, namespace='/')
+
+                        resolver = MediaPlayResolver(
+                            media_dto=task_point,
+                            speed=config.VIDEO["speed"],
+                            report_rate=config.VIDEO["report_rate"],
                         )
                         resolver.execute()
                         socketio.emit('task_event', {
                             'task_id': task_id,
                             'type': 'info',
-                            'message': f'作业任务完成，等待 {config.WORK_WAIT} 秒'
-                        }, namespace='/', broadcast=True)
-                        time.sleep(config.WORK_WAIT)
+                            'message': f'视频任务完成，等待 {config.VIDEO_WAIT} 秒'
+                        }, namespace='/')
+                        time.sleep(config.VIDEO_WAIT)
+                    
+                    # 文档任务
+                    elif config.DOCUMENT_EN and task_type == 'PointDocumentDto':
+                        if not task_point.parse_attachment():
+                            continue
+                        socketio.emit('task_event', {
+                            'task_id': task_id,
+                            'type': 'task_point_start',
+                            'message': f'处理任务点： {task_point.title} [{task_type}]'
+                        }, namespace='/')
+                        resolver = DocumetResolver(document_dto=task_point)
+                        resolver.execute()
+                        socketio.emit('task_event', {
+                            'task_id': task_id,
+                            'type': 'info',
+                            'message': f'文档任务完成，等待 {config.DOCUMENT_WAIT} 秒'
+                        }, namespace='/')
+                        time.sleep(config.DOCUMENT_WAIT)
+                    
+                    # 作业/测验任务
+                    elif (config.WORK_EN or config.WORK["export"] is True) and task_type == 'PointWorkDto':
+
+                        if config.WORK["export"] is True:
+                            task_point.parse_attachment()
+                            # 保存 json 文件
+                            task_point.export(
+                                config.EXPORT_PATH / f"work_{task_point.work_id}.json"
+                            )
+                        if config.WORK_EN:
+                            if not task_point.parse_attachment():
+                                continue
+                            task_point.fetch_all()
+                            socketio.emit('task_event', {
+                                'task_id': task_id,
+                                'type': 'task_point_start',
+                                'message': f'处理任务点： {task_point.title} [{task_type}]'
+                            }, namespace='/')
+                            resolver = QuestionResolver(
+                                exam_dto=task_point,
+                                fallback_save=config.WORK["fallback_save"],
+                                fallback_fuzzer=config.WORK["fallback_fuzzer"],
+                            )
+                            resolver.execute()
+                            socketio.emit('task_event', {
+                                'task_id': task_id,
+                                'type': 'info',
+                                'message': f'作业任务完成，等待 {config.WORK_WAIT} 秒'
+                            }, namespace='/')
+                            time.sleep(config.WORK_WAIT)
+
+
                     
                     socketio.emit('task_event', {
                         'task_id': task_id,
                         'type': 'task_point_complete',
-                        'message': f'✓ 任务点完成：{task_point.title}'
-                    }, namespace='/', broadcast=True)
+                        'message': f'✓ 任务点完成： {task_point.title}'
+                    }, namespace='/')
                 
                 except Exception as e:
                     socketio.emit('task_event', {
                         'task_id': task_id,
                         'type': 'error',
-                        'message': f'✗ 任务点处理失败：{task_point.title} - {str(e)}'
-                    }, namespace='/', broadcast=True)
+                        'message': f'✗ 任务点处理失败： {task_point.title} - {str(e)}'
+                    }, namespace='/')
             
             # 刷新状态
             chapter.fetch_point_status()
@@ -593,15 +637,15 @@ def process_chapter_tasks(chapter: ChapterContainer, task_id: str):
                 'task_id': task_id,
                 'type': 'info',
                 'message': f'章节状态已更新：{layer.name}'
-            }, namespace='/', broadcast=True)
-            
+            }, namespace='/')
+
     except Exception as e:
         logger.error(f"章节任务处理异常: {e}", exc_info=True)
         socketio.emit('task_event', {
             'task_id': task_id,
             'type': 'error',
             'message': f'章节处理异常：{str(e)}'
-        }, namespace='/', broadcast=True)
+        }, namespace='/')
         raise
 
 
@@ -649,4 +693,4 @@ def handle_disconnect():
 if __name__ == '__main__':
     logger.info(f"CxKitty Web UI v{__version__} 启动")
     logger.info("访问 http://127.0.0.1:5000 使用Web界面")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False,allow_unsafe_werkzeug=True)

@@ -324,8 +324,8 @@ class CxKittyApp {
                                 <div>教师: ${course.teacher}</div>
                                 <div>课程ID: ${course.course_id}</div>
                             </div>
-                            <span class="course-status ${course.status.toLowerCase()}">
-                                ${course.status === 'ONGOING' ? '进行中' : '已完成'}
+                            <span class="course-status ${course.status === '进行中' ? 'ongoing' : 'finished'}">
+                                ${course.status}
                             </span>
                         </div>
                     </div>
