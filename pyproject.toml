@@ -30,6 +30,9 @@ opencv-python = "^4.7.0.72"
 dataclasses-json = "^0.5.7"
 yarl = "^1.9.2"
 openai = "^1.14.3"
+flask = "^3.0.0"
+flask-socketio = "^5.3.5"
+pillow = "^10.0.0"
 
 
 [tool.poetry.group.dev.dependencies]

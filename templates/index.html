@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CxKitty - 超星学习通答题姬 v{{ version }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js" 
+            onerror="this.onerror=null; this.src='/static/js/socket.io.min.js'"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部导航栏 -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-cx">Cx</span><span class="logo-kitty">Kitty</span>
+                    <span class="version">v{{ version }}</span>
+                </div>
+                <nav class="nav">
+                    <a href="#" class="nav-link active" data-page="login">登录</a>
+                    <a href="#" class="nav-link" data-page="courses" style="display:none;">课程</a>
+                    <a href="#" class="nav-link" data-page="tasks" style="display:none;">任务</a>
+                    <a href="#" class="nav-link" data-page="config">设置</a>
+                </nav>
+                <div class="user-info" style="display:none;">
+                    <span class="user-name"></span>
+                    <button class="btn-logout">退出</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 登录页面 -->
+            <div class="page page-login active">
+                <div class="login-container">
+                    <div class="login-card">
+                        <h1 class="login-title">欢迎使用 CxKitty</h1>
+                        <p class="login-subtitle">超星学习通自动化工具</p>
+                        
+                        <div class="login-tabs">
+                            <button class="tab-btn active" data-tab="password">密码登录</button>
+                            <button class="tab-btn" data-tab="qrcode">扫码登录</button>
+                            <button class="tab-btn" data-tab="session">会话登录</button>
+                        </div>
+
+                        <!-- 密码登录 -->
+                        <div class="tab-content active" id="tab-password">
+                            <form class="login-form" id="login-password-form">
+                                <div class="form-group">
+                                    <label>手机号</label>
+                                    <input type="tel" name="phone" placeholder="请输入手机号" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>密码</label>
+                                    <input type="password" name="password" placeholder="请输入密码" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">登录</button>
+                            </form>
+                        </div>
+
+                        <!-- 二维码登录 -->
+                        <div class="tab-content" id="tab-qrcode">
+                            <div class="qrcode-container">
+                                <div class="qrcode-box">
+                                    <img id="qrcode-image" src="" alt="二维码">
+                                    <div class="qrcode-status">
+                                        <p id="qrcode-status-text">点击生成二维码</p>
+                                    </div>
+                                </div>
+                                <button class="btn btn-secondary btn-block" id="btn-generate-qr">生成二维码</button>
+                            </div>
+                        </div>
+
+                        <!-- 会话登录 -->
+                        <div class="tab-content" id="tab-session">
+                            <div class="session-list" id="session-list">
+                                <p class="loading-text">加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 课程页面 -->
+            <div class="page page-courses">
+                <div class="content-container">
+                    <div class="page-header">
+                        <h2>我的课程</h2>
+                        <button class="btn btn-primary" id="btn-start-tasks">开始任务</button>
+                    </div>
+                    <div class="courses-grid" id="courses-grid">
+                        <p class="loading-text">加载中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 任务页面 -->
+            <div class="page page-tasks">
+                <div class="content-container">
+                    <div class="page-header">
+                        <h2>任务执行</h2>
+                        <div class="task-controls">
+                            <button class="btn btn-secondary" id="btn-stop-task">停止任务</button>
+                        </div>
+                    </div>
+                    <div class="task-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                        </div>
+                        <p class="progress-text" id="progress-text">等待开始...</p>
+                    </div>
+                    <div class="task-log" id="task-log">
+                        <div class="log-header">执行日志</div>
+                        <div class="log-content" id="log-content"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设置页面 -->
+            <div class="page page-config">
+                <div class="content-container">
+                    <div class="page-header">
+                        <h2>系统设置</h2>
+                    </div>
+                    <div class="config-sections">
+                        <div class="config-section">
+                            <h3>视频任务</h3>
+                            <div class="config-item">
+                                <label>
+                                    <input type="checkbox" id="config-video-enable" checked>
+                                    启用视频任务
+                                </label>
+                            </div>
+                            <div class="config-item">
+                                <label>等待时间（秒）</label>
+                                <input type="number" id="config-video-wait" value="15" min="0">
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <h3>作业任务</h3>
+                            <div class="config-item">
+                                <label>
+                                    <input type="checkbox" id="config-work-enable" checked>
+                                    启用作业任务
+                                </label>
+                            </div>
+                            <div class="config-item">
+                                <label>等待时间（秒）</label>
+                                <input type="number" id="config-work-wait" value="15" min="0">
+                            </div>
+                            <div class="config-item">
+                                <label>
+                                    <input type="checkbox" id="config-work-fuzzer">
+                                    启用随机答题（fallback）
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <h3>文档任务</h3>
+                            <div class="config-item">
+                                <label>
+                                    <input type="checkbox" id="config-document-enable" checked>
+                                    启用文档任务
+                                </label>
+                            </div>
+                            <div class="config-item">
+                                <label>等待时间（秒）</label>
+                                <input type="number" id="config-document-wait" value="15" min="0">
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <h3>考试设置</h3>
+                            <div class="config-item">
+                                <label>
+                                    <input type="checkbox" id="config-exam-confirm" checked>
+                                    交卷前确认
+                                </label>
+                            </div>
+                            <div class="config-item">
+                                <label>
+                                    <input type="checkbox" id="config-exam-fuzzer">
+                                    启用随机答题（fallback）
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="config-actions">
+                        <button class="btn btn-primary" id="btn-save-config">保存设置</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 提示消息 -->
+        <div class="toast-container" id="toast-container"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
