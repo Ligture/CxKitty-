@@ -116,9 +116,19 @@ def login_password():
             'session_id': user_session_id
         }
         
-        # 检查用户是否已登录，避免重复
+        # 检查用户是否已登录，如果已存在则更新session_id
         existing_user = next((u for u in logged_in_users[flask_session_id] if u['puid'] == api.acc.puid), None)
-        if not existing_user:
+        if existing_user:
+            # 清理旧的API实例
+            old_session_id = existing_user['session_id']
+            if old_session_id in api_instances:
+                del api_instances[old_session_id]
+            # 更新session_id
+            existing_user['session_id'] = user_session_id
+            # 如果当前用户是这个用户，更新当前session_id
+            if session.get('current_user_session_id') == old_session_id:
+                session['current_user_session_id'] = user_session_id
+        else:
             logged_in_users[flask_session_id].append(user_info)
         
         # 设置当前活跃用户
@@ -135,10 +145,11 @@ def login_password():
 @app.route('/api/login/qr/init', methods=['POST'])
 def qr_login_init():
     """初始化二维码登录"""
-    session_id = session.get('session_id', os.urandom(16).hex())
-    session['session_id'] = session_id
+    # 为QR登录创建临时session
+    temp_session_id = os.urandom(16).hex()
+    session['qr_temp_session_id'] = temp_session_id
     
-    api = get_api(session_id)
+    api = get_api(temp_session_id)
     api.qr_get()
     qr_url = api.qr_geturl()
     
@@ -162,16 +173,29 @@ def qr_login_init():
 @app.route('/api/login/qr/check', methods=['POST'])
 def qr_login_check():
     """检查二维码登录状态"""
-    session_id = session.get('session_id')
-    if not session_id:
+    temp_session_id = session.get('qr_temp_session_id')
+    if not temp_session_id:
         return jsonify({'success': False, 'message': '会话不存在'}), 400
     
-    api = get_api(session_id)
+    api = get_api(temp_session_id)
     qr_status = api.login_qr()
     
     if qr_status['status']:
         api.accinfo()
         save_session(api.session.ck_dump(), api.acc)
+        
+        # 为登录成功的用户创建独立session_id（不再使用临时session）
+        user_session_id = os.urandom(16).hex()
+        
+        # 将临时API实例的数据复制到新实例
+        new_api = get_api(user_session_id)
+        new_api.session.ck_load(api.session.ck_dump())
+        new_api.acc = api.acc
+        
+        # 清理临时session
+        if temp_session_id in api_instances:
+            del api_instances[temp_session_id]
+        session.pop('qr_temp_session_id', None)
         
         # 获取Flask session ID
         flask_session_id = session.get('flask_session_id', os.urandom(16).hex())
@@ -182,22 +206,32 @@ def qr_login_check():
             logged_in_users[flask_session_id] = []
         
         user_info = {
-            'puid': api.acc.puid,
-            'name': api.acc.name,
-            'sex': api.acc.sex.name,
-            'phone': api.acc.phone,
-            'school': api.acc.school,
-            'stu_id': api.acc.stu_id,
-            'session_id': session_id
+            'puid': new_api.acc.puid,
+            'name': new_api.acc.name,
+            'sex': new_api.acc.sex.name,
+            'phone': new_api.acc.phone,
+            'school': new_api.acc.school,
+            'stu_id': new_api.acc.stu_id,
+            'session_id': user_session_id
         }
         
-        # 检查用户是否已登录，避免重复
-        existing_user = next((u for u in logged_in_users[flask_session_id] if u['puid'] == api.acc.puid), None)
-        if not existing_user:
+        # 检查用户是否已登录，如果已存在则更新session_id
+        existing_user = next((u for u in logged_in_users[flask_session_id] if u['puid'] == new_api.acc.puid), None)
+        if existing_user:
+            # 清理旧的API实例
+            old_session_id = existing_user['session_id']
+            if old_session_id in api_instances:
+                del api_instances[old_session_id]
+            # 更新session_id
+            existing_user['session_id'] = user_session_id
+            # 如果当前用户是这个用户，更新当前session_id
+            if session.get('current_user_session_id') == old_session_id:
+                session['current_user_session_id'] = user_session_id
+        else:
             logged_in_users[flask_session_id].append(user_info)
         
         # 设置当前活跃用户
-        session['current_user_session_id'] = session_id
+        session['current_user_session_id'] = user_session_id
         
         return jsonify({
             'success': True,
@@ -268,9 +302,19 @@ def login_session():
         'session_id': user_session_id
     }
     
-    # 检查用户是否已登录，避免重复
+    # 检查用户是否已登录，如果已存在则更新session_id
     existing_user = next((u for u in logged_in_users[flask_session_id] if u['puid'] == api.acc.puid), None)
-    if not existing_user:
+    if existing_user:
+        # 清理旧的API实例
+        old_session_id = existing_user['session_id']
+        if old_session_id in api_instances:
+            del api_instances[old_session_id]
+        # 更新session_id
+        existing_user['session_id'] = user_session_id
+        # 如果当前用户是这个用户，更新当前session_id
+        if session.get('current_user_session_id') == old_session_id:
+            session['current_user_session_id'] = user_session_id
+    else:
         logged_in_users[flask_session_id].append(user_info)
     
     # 设置当前活跃用户

@@ -330,18 +330,20 @@ class CxKittyApp {
             return;
         }
         
+        // 移除旧的切换器
+        const existingSwitcher = document.querySelector('.user-switcher');
+        if (existingSwitcher) {
+            existingSwitcher.remove();
+        }
+        
         // 如果有多个用户，显示用户切换器
         if (this.loggedInUsers.length > 1) {
-            const existingSwitcher = document.querySelector('.user-switcher');
-            if (existingSwitcher) {
-                existingSwitcher.remove();
-            }
-            
             const switcher = document.createElement('div');
             switcher.className = 'user-switcher';
             switcher.innerHTML = `
                 <button class="user-switcher-btn">
                     <span>${this.currentUser ? this.currentUser.name : '选择用户'}</span>
+                    <span class="user-count-badge">${this.loggedInUsers.length}</span>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M4 6l4 4 4-4z"/>
                     </svg>
@@ -354,7 +356,7 @@ class CxKittyApp {
                                 <div class="user-switch-name">${user.name}</div>
                                 <div class="user-switch-meta">${user.phone}</div>
                             </div>
-                            <button class="user-logout-btn" data-session-id="${user.session_id}" title="退出">×</button>
+                            <button class="user-logout-btn" data-session-id="${user.session_id}" title="退出此用户">×</button>
                         </div>
                     `).join('')}
                 </div>
@@ -375,6 +377,9 @@ class CxKittyApp {
             document.addEventListener('click', () => {
                 dropdown.classList.remove('show');
             });
+        } else {
+            // 单个用户时，显示简单的用户信息
+            userName.textContent = this.currentUser.name;
         }
     }
     
@@ -466,11 +471,18 @@ class CxKittyApp {
     }
 
     // 登录成功处理
-    onLoginSuccess() {
-        this.showToast('登录成功', 'success');
-        
+    async onLoginSuccess() {
         // 重新加载用户列表
-        this.loadLoggedInUsers();
+        await this.loadLoggedInUsers();
+        
+        // 检查是否是重复登录
+        const wasAlreadyLoggedIn = this.loggedInUsers.some(u => u.puid === this.currentUser.puid);
+        
+        if (wasAlreadyLoggedIn) {
+            this.showToast(`${this.currentUser.name} 已登录，会话已更新`, 'info');
+        } else {
+            this.showToast('登录成功', 'success');
+        }
         
         // 更新UI
         this.updateUserUI();

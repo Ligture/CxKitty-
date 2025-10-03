@@ -178,7 +178,27 @@ body {
 .login-subtitle {
     text-align: center;
     color: var(--text-secondary);
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
+}
+
+.feature-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 2rem;
+    color: var(--primary-color);
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0 auto 2rem;
+    width: fit-content;
+}
+
+.feature-badge svg {
+    color: var(--primary-color);
 }
 
 .login-tabs {
@@ -693,6 +713,20 @@ body {
 
 .user-switcher-btn svg {
     transition: var(--transition);
+}
+
+.user-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.4rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 .user-switcher-dropdown {
