@@ -112,7 +112,7 @@ class OpenAISearcher(SearcherBase):
                     response = v
                     break
         # 多选同理 
-        if question.type.value is 1:
+        if question.type.value == 1:
             choice = response.strip().split(',')
             awa = ""
             for k, v in question.options.items():

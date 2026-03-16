@@ -25,6 +25,7 @@ from cxapi.schema import QuestionModel, QuestionsExportSchema, QuestionsExportTy
 from logger import Logger
 
 from .searcher import MultiSearcherWraper, SearcherResp
+from .searcher.geminiweb import GeminiWebSearcher
 
 from .searcher.json import JsonFileSearcher
 from .searcher.openai import OpenAISearcher
@@ -53,6 +54,7 @@ SEARCHERS = {
     "JsonApiSearcher": JsonApiSearcher,
     "LemonSearcher": LemonSearcher,
     "OpenAISearcher": OpenAISearcher,
+    "GeminiWebSearcher": GeminiWebSearcher,
 }
 
 
