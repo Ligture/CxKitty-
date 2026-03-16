@@ -244,6 +244,8 @@ Enncy 题库，使用前请注册并获取 Token 填写在配置文件中（第�
 
 通过此 [链接](https://www.lemtk.xyz) 获取 Token
 
+Gemini Web,从Gemini网页版cookie中获取Secure_1PSID Secure_1PSIDTS
+
 ## 📖Usage & Demo
 
 **注：本项目并非小白向“开箱即用”类型，需要一定的计算机专业技术能力；如需使用自动答题功能，请确保您拥有准确无误的题库资源**
