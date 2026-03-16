@@ -36,7 +36,7 @@ work:
   # 使能
   enable: true
   # 是否进行试题导出 可以将 `enable`设置为 false, 从而进行 dry run
-  export: false
+  export: true
   # 完成等待时间
   wait: 15
   # 未匹配选项是否随机选择
@@ -132,11 +132,24 @@ searchers:
   #   token: "xxx"
 
   # ChatGPT 在线答题
-  - type: OpenAISearcher
-    base_url: "https://api-inference.modelscope.cn/v1" # API URL，可以换成一些国内代理站点例如 https://api.chatnio.net/v1/
-    api_key: "ms-a946fb4e-ce4c-4fd9-8f4a-b988f2cae3da"
-    model: "deepseek-ai/DeepSeek-V3.1" # 使用的模型型号，详见 https://platform.openai.com/docs/models/continuous-model-upgrades
-    system_prompt: "你是一位专业的学习通题目答题助手。\n\n请严格遵循以下规则作答：\n\n1. 精准识别核心主题：仔细分析题干要求，明确限定范围（如“经济发展”“政治安全”“社会治理”）\n\n2. 严格筛选选项：\n - 只选择与题干主题有直接因果或影响关系的选项\n - 排除虽表述正确但属于其他领域或仅有间接联系的选项\n - 排除与题干要求无直接关联的选项\n\n3. 多选题处理：\n - 至少选择两个正确选项\n - 选项字母用英文逗号分隔\n\n4. 输出格式：\n - 单选题：只输出选项字母\n - 判断题：只输出“对”或“错”\n - 多选题：只输出选项字母，用逗号分隔.\n\n请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容。"
+  #- type: OpenAISearcher
+  #  base_url: "*" # API URL，可以换成一些国内代理站点例如 https://api.chatnio.net/v1/
+  #  api_key: "*"
+  #  model: "deepseek-ai/DeepSeek-V3.2-Exp" # 使用的模型型号，详见 https://platform.openai.com/docs/models/continuous-model-upgrades
+  #  system_prompt: "你是一位专业的学习通题目答题助手。\n\n请严格遵循以下规则作答：\n\n 多选题至少选择两个正确选项\n - 选项字母用英文逗号分隔\n\n输出格式：\n - 单选题：只输出选项字母\n - 判断题：只输出“对”或“错”\n - 多选题：只输出选项字母，用逗号分隔.\n\n请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容。"
+  #  prompt: "请回答下这个{type}：\n{value}\n{options}" 
+    # {type} ：题目类型 (单选题、多选题 等等)
+    # {value}：题干
+    # {options}：选项文本（eg:"选项：\nA. assurance;B. insurance;C. requirement;D. issure"），如果题目没有选项（如填空题），则为空
+    
+  #gemini无apikey web版
+  - type: GeminiWebSearcher
+    proxy_enable: false #使用代理
+    proxy: "http://127.0.0.1:7897"
+    Secure_1PSID: "*" #gemini cookie中获取
+    Secure_1PSIDTS: "*" #gemini cookie中获取
+    model: "G-3.1-PRO" #模型 可选:G-3.1-PRO G-3.0-FLASH-THINKING G-3.0-FLASH
+    system_prompt: "system_prompt:你是一个学习通答题助手,你会得到一些有关题目,你需要回答这些题目,包括单选题,多选题,判断题,多选题至少选择两个选项,用逗号分隔答案.答案尽量通过网络搜索确认.输出格式:单选题：只输出选项字母 - 判断题：只输出“对”或“错” - 多选题：只输出选项字母，用逗号分隔.请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容."
     prompt: "请回答下这个{type}：\n{value}\n{options}" 
     # {type} ：题目类型 (单选题、多选题 等等)
     # {value}：题干
