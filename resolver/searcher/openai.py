@@ -104,7 +104,7 @@ class OpenAISearcher(SearcherBase):
             return SearcherResp(-500, err.__str__(), self, question.value, None)
 
         # 单选题需要进一步预处理AI返回结果，以使 QuestionResolver 能正确命中
-        if question.type.value is 0:
+        if question.type.value == 0:
             response = response.strip()# A. insurance
             for k, v in question.options.items():
                 #单独选项、或者包含 insurance

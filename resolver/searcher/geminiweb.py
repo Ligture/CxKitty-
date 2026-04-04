@@ -34,8 +34,9 @@ class GeminiWebSearcher(SearcherBase):
         else:
             self.model = Model.G_3_0_FLASH
 
-        asyncio.run(self.gemini_init())
-
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_until_complete(self.gemini_init())
 
     async def gemini_init(self):
         proxy = None
@@ -61,6 +62,7 @@ class GeminiWebSearcher(SearcherBase):
             )
         else:
             response = await self.client.generate_content(
+                self.system_prompt + '------------' +
                 str(self.config["prompt"]).format(
                     type=question.type.name,
                     value=question.value,
@@ -97,8 +99,8 @@ class GeminiWebSearcher(SearcherBase):
             ),
         )
         try:
-            response = asyncio.run(self.gemini(question, in_chat_session=True))
-
+            response = self.loop.run_until_complete(self.gemini(question, in_chat_session=False))
+            self.logger.info("返回结果: "+response)
             if response is None:
                 # 防止预处理时报错
                 response = ''
@@ -122,5 +124,4 @@ class GeminiWebSearcher(SearcherBase):
                     awa += v + "#"
             response = awa
 
-        self.logger.info("返回结果：" + response)
         return SearcherResp(0, "", self, question.value, response)
