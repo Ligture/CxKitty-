@@ -136,7 +136,8 @@ session/*.json
 questions.*
 export/*
 faces/*
-config.yml
+# 配置文件与备份(含多配置文件, 如 config(no_answer).yml)均不入库
+config*.yml
 config.yml.bak.*
 
 # 视频转录管道产物

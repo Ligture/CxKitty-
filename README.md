@@ -88,6 +88,18 @@ poetry install
 poetry run python3 main.py
 ```
 
+指定配置文件（多配置）——启动参数 `-C/--config-file`，等价环境变量 `CXKITTY_CONFIG`，优先级高于默认的 `config.yml`：
+
+```bash
+# 用 config(no_answer).yml 启动(只刷课 / 转录, 不自动答题)
+poetry run python3 main.py -C "config(no_answer).yml"
+
+# 也可用环境变量指定
+CXKITTY_CONFIG="config(no_answer).yml" poetry run python3 main.py
+```
+
+Windows 下可直接双击 `start.bat`（使用 `config.yml`）或 `start_no_answer.bat`（使用 `config(no_answer).yml`）。
+
 ### 🐋使用  Docker  构建项目
 
 从 DockerHub 拉取最新镜像
@@ -171,6 +183,8 @@ docker run -it \
 配置文件为 `config.yml`（Yaml 语法，示例见 [config.yml.example](config.yml.example)），采用**分段格式**：`runtime`（运行 / 界面）、`paths`（目录）、`proxy`（网络代理）、`tasks`（刷课任务）、`transcript`（视频转录）、`searchers`（题库与 AI 搜索器）各自成段。
 
 示例采用**花括号流式写法**（`{ key: value, ... }`，外观接近 JSON），但它仍是 YAML，因此支持 `#` 注释、尾逗号与省略键名引号；长提示词可用 `prompt_file` / `system_prompt_file` 指向文本文件（仓库自带 `prompts/answer.txt`、`prompts/system.txt` 作模板）。
+
+启动时可指定其它配置文件实现多配置：`poetry run python main.py -C "config(no_answer).yml"`（等价环境变量 `CXKITTY_CONFIG`，未指定时使用 `config.yml`）。多配置文件已被 `.gitignore` 忽略，不会误提交密钥。
 
 字段含义、搜索器参数表与完整示例见 [docs/configuration.md](docs/configuration.md)
 

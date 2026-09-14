@@ -323,7 +323,7 @@ class TranscriptWorker:
         model_root = sett["model_root"]
         if not model_root:
             raise TranscriptionError(
-                "未配置 transcript.model_root, 请在 config.yml 中指向 SenseVoiceSmall 模型目录"
+                f"未配置 transcript.model_root, 请在 {cfg.CONFIG_PATH} 中指向 SenseVoiceSmall 模型目录"
             )
         status = model_root_status(model_root)
         if not status["ready"]:

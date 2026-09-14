@@ -15,6 +15,31 @@
 
 > 旧版 v1（扁平结构，如 `session_path:`、`proxies:` 直接写在顶层）**仍可读取**：程序启动时会给出兼容警告，按提示执行 `python scripts/migrate_config.py` 即可迁移（原文件自动备份为 `config.yml.bak.<时间戳>`）。
 
+## 多配置：启动时指定配置文件
+
+同一套代码可以准备多份配置文件（例如答题用 `config.yml`，只刷课 / 转录用 `config(no_answer).yml`），启动时按需选择。解析优先级为 **启动参数 > 环境变量 > 默认值 `config.yml`**：
+
+```bash
+# 1. 启动参数 -C / --config-file（下面三种写法等价）
+poetry run python main.py -C "config(no_answer).yml"
+poetry run python main.py --config-file "config(no_answer).yml"
+poetry run python main.py --config-file="config(no_answer).yml"
+
+# 2. 环境变量（适合容器 / 计划任务）
+export CXKITTY_CONFIG="config(no_answer).yml"    # Windows cmd: set "CXKITTY_CONFIG=config(no_answer).yml"
+poetry run python main.py
+
+# 3. 不指定 => config.yml
+poetry run python main.py
+```
+
+说明：
+
+- `-C/--config-file` 由 `config` 模块在启动时读取并消费，因此其它命令行参数（`-c` / `-u` / `-p` / `-l`）照常使用；启动时会打印实际生效的配置文件
+- **显式指定**的配置文件不存在时直接报错退出（避免静默跑成默认配置）；默认的 `config.yml` 缺失时只警告并回退到默认值
+- 路径相对运行目录解析；Windows 可直接用随附脚本 `start.bat`（`config.yml`）与 `start_no_answer.bat`（`config(no_answer).yml`，只刷课 / 转录、不自动答题）
+- `config*.yml` 已在 `.gitignore` 中，多份配置（含 API Key）都不会被提交
+
 ## 结构总览
 
 ```yaml
@@ -191,15 +216,17 @@ searchers: {
 | `config.yml: 未知配置项 \`xxx\`, 已忽略` | 字段名拼写错误或已废弃 |
 | `config.yml: \`xxx\` 的值 ... 类型不正确, 已回退默认值 ...` | 类型错误（如把 `wait` 写成文本） |
 | `config.yml 仍是 v1 扁平格式 ...` | 旧格式兼容提示，建议迁移 |
-| `未配置任何搜索器: 请在 config.yml 的 searchers.items 中至少启用一个搜索器` | 没有可用搜索器，无法自动答题 |
+| `指定的配置文件不存在: xxx.yml` | `-C/--config-file` 指定的文件不存在（直接退出，避免误用默认配置） |
+| `未配置任何搜索器: 请在 <配置文件> 的 searchers.items 中至少启用一个搜索器` | 没有可用搜索器，无法自动答题（`<配置文件>` 是当前生效的配置文件） |
 | `所有搜索器都被禁用(enabled: false), 请至少启用一个搜索器` | `items` 中的条目全部被 `enabled: false` 跳过 |
 | `搜索器 [xxx] 缺少必填配置项: ...` / `存在未知配置项: ...` | 搜索器条目参数有误 |
 
 ## 常见问题
 
-- **只想导出题目、不自动作答？** 设 `tasks.work.enable: true`、`tasks.work.export: false`。
+- **只想导出题目、不自动作答？** 设 `tasks.work.export: true`、`tasks.work.enable: false`（导出题目后跳过作答）。
 - **不用自动答题功能？** 可以不在 `searchers.items` 中配置任何搜索器；只有执行到测验环节时才会要求搜索器。
 - **多个 AI 搜索器都要写提示词吗？** 不需要，写在 `searchers.defaults` 中共享，条目内按需覆盖。
 - **想临时停用某个搜索器？** 把该条目改为 `enabled: false`（保留配置，不影响其他条目）
 - **提示词很长，配置里全是 `\n` 转义怎么办？** 把提示词写进文本文件，用 `prompt_file` / `system_prompt_file` 引用，例如 `{ prompt_file: "prompts/answer.txt", system_prompt_file: "prompts/system.txt" }`
+- **想用另一份配置文件（如不答题的组合）启动？** 用 `python main.py -C "config(no_answer).yml"`，或直接运行 `start_no_answer.bat`，详见上文「多配置」。
 - **必须用花括号写法吗？** 不必，缩进块式（`key:` + 换行）同样支持，甚至可以混用；迁移脚本可用 `--style block` 输出块式。

@@ -217,7 +217,7 @@ def load_searcher() -> MultiSearcherWraper:
     """
     if not config.SEARCHERS:
         raise AttributeError(
-            "未配置任何搜索器: 请在 config.yml 的 searchers.items 中至少启用一个搜索器; "
+            f"未配置任何搜索器: 请在 {config.CONFIG_PATH} 的 searchers.items 中至少启用一个搜索器; "
             "若不需要自动答题, 可关闭 tasks.work.enable"
         )
     wrapper = MultiSearcherWraper()

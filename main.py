@@ -605,9 +605,19 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--username", type=str, default=None, help="手机号账号")
     parser.add_argument("-p", "--password", type=str, default=None, help="登录密码")
     parser.add_argument("-l", "--list", type=str, default=None, help="要学习的课程ID列表")
+    parser.add_argument(
+        "-C",
+        "--config-file",
+        type=str,
+        default=str(config.CONFIG_PATH),
+        metavar="PATH",
+        help='指定配置文件(默认 config.yml), 如 -C "config(no_answer).yml"; '
+        "该选项由 config 模块在启动时读取, 也可用环境变量 CXKITTY_CONFIG",
+    )
     args = parser.parse_args()
 
     console = Console()
+    console.print(f"[cyan]配置文件: {args.config_file}")
     use_manual_login = not args.config
     username = args.username
     password = args.password
@@ -639,6 +649,7 @@ if __name__ == "__main__":
 
     logger.info("\n-----*任务开始执行*-----")
     logger.info(f"Ver. {__version__}")
+    logger.info(f"配置文件: {args.config_file}")
     # 视频转录管道启动探测(ffmpeg / 模型目录 / ASR 依赖)
     transcript.log_startup_report()
     _accinfo(console, api)
