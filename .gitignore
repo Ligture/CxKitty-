@@ -137,6 +137,7 @@ questions.*
 export/*
 faces/*
 config.yml
+config.yml.bak.*
 
 # 视频转录管道产物
 transcripts/

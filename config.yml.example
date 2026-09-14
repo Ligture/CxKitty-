@@ -1,209 +1,130 @@
-# 基本配置
+# ============================================================
+#  CxKitty 配置文件 (格式版本 2)
+#  字段说明 : docs/configuration.md
+#  迁移旧版 : python scripts/migrate_config.py  (v1 扁平格式仍可读取)
+# ============================================================
 
-# 是否开启多会话模式
-multi_session: true
-# 是否开启姓名手机号打码
-mask_acc: true
-# TUI 最大显示高度 null: 自适应高度
-tui_max_height: 25
-# 尝试拉取预先上传的人脸图片
-fetch_uploaded_face: true
-# 会话存档路径
-session_path: "session/"
-# 日志文件路径
-log_path: "logs/"
-# 试题导出路径
-export_path: "export/"
-# 人脸图片路径
-face_image_path: "faces/"
+version: 2
 
-# --------------------
+# ---------------- 运行 / 界面 ----------------
+runtime:
+  multi_session: true          # 多会话模式: 启动时选择会话存档
+  mask_acc: true               # 手机号与姓名打码
+  tui_max_height: 25           # TUI 高度, null 表示自适应
+  fetch_uploaded_face: true    # 登录后拉取云端已上传的人脸图片
 
-# 任务执行器配置
-# 视频
-video:
-  # 使能
-  enable: true
-  # 完成等待时间
-  wait: 15
-  # 倍速
-  speed: 1.0
-  # 视频播放汇报率 (没事别改)
-  report_rate: 58
-  # 刷课时下载视频(视频转录的前置条件, 仅在 transcript.enable 开启时生效)
-  download: true
+# ---------------- 目录 ----------------
+paths:
+  session: "session/"          # 会话存档
+  logs: "logs/"                # 日志
+  export: "export/"            # 试题 / 错题导出
+  faces: "faces/"              # 人脸图片
 
-# 作业 (章节测验)
-work:
-  # 使能
-  enable: true
-  # 是否进行试题导出 可以将 `enable`设置为 false, 从而进行 dry run
-  export: true
-  # 完成等待时间
-  wait: 15
-  # 未匹配选项是否随机选择
-  fallback_fuzzer: false
-  # 作答失败后是否保存
-  fallback_save: true
+# ---------------- 网络代理 ----------------
+proxy:
+  enable: false                # 同时作用于学习通请求与 AI 搜索器
+  http: "http://127.0.0.1:7897"
+  https: "http://127.0.0.1:7897"
 
-# 文档
-document:
-  # 使能
-  enable: true
-  # 完成等待时间
-  wait: 15
+# ---------------- 刷课任务 ----------------
+tasks:
 
-# 考试
-exam:
-  # 未匹配选项是否随机选择
-  fallback_fuzzer: false
-  # 提交前延迟时间
-  persubmit_delay: 15
-  # 是否需要交互式确认交卷 自动交卷: false 手动确认: true
-  confirm_submit: true
-# --------------------
+  video:
+    enable: true
+    wait: 15                   # 单个任务点完成后的等待秒数
+    speed: 1.0                 # 倍速
+    report_rate: 58            # 播放上报频率(没事别改)
+    download: true             # 刷课时下载视频(视频转录的前置条件)
 
-# 视频转录管道 (下载视频 -> ffmpeg 提取音频 -> 本地 SenseVoiceSmall 转录 -> 章节文稿供 AI 作答)
-# 设计说明见 docs/video-transcript-plan.md
-# 依赖安装: 执行 scripts/install-asr.ps1 (需 Python 3.11/3.12, torch + funasr 体积较大)
+  work:                        # 作业 / 章节测验
+    enable: true
+    export: true               # 导出试题; enable: true 且 export: false 时只导出不作答
+    wait: 15
+    fallback_fuzzer: false     # 未匹配到答案时随机选择
+    fallback_save: true        # 作答失败仍保存
+
+  document:
+    enable: true
+    wait: 15
+
+  exam:
+    fallback_fuzzer: false
+    persubmit_delay: 15        # 交卷前延迟秒数
+    confirm_submit: true       # true 手动确认交卷, false 自动交卷
+
+# ---------------- 视频转录管道 ----------------
+# 下载视频 -> ffmpeg 提取音频 -> 本地 SenseVoiceSmall 转录 -> 章节文稿供 AI 作答
+# 依赖安装: scripts/install-asr.ps1 (需 Python 3.11/3.12); 设计说明: docs/video-transcript-plan.md
 transcript:
-  # 使能 (关闭时完全不影响原有刷课流程)
-  enable: false
-  # 模型根目录, 需包含 sensevoice-small/ 与 fsmn-vad/ 两个子目录
-  model_root: "D:/Project/search_via_bilibili/models"
-  # 推理设备 auto: 有 cuda 用 cuda, 否则 cpu
-  device: "auto"
-  # SenseVoice 识别语言 auto/zh/en/yue/ja/ko
-  language: "auto"
-  # 是否启用逆文本正则化(数字、标点)
-  use_itn: true
-  # 转录缓存目录 (object_id.json)
-  cache_path: "transcripts/"
-  # 视频 / 音频临时目录 (转录完成后按下面开关清理)
-  video_path: "videos/"
-  audio_path: "audios/"
-  # 转录完成后是否保留视频 (false 时删除, 转录失败会保留以便重试)
-  keep_video: false
-  # 转录完成后是否保留音频
-  keep_audio: false
+  enable: false                # 关闭时完全不影响原有刷课流程
+  model_root: ""               # 模型根目录, 需包含 sensevoice-small/ 与 fsmn-vad/
+  device: "auto"               # auto / cuda / cpu
+  language: "auto"             # auto / zh / en / yue / ja / ko
+  use_itn: true                # 逆文本正则化(数字、标点)
+  cache_path: "transcripts/"   # 转录缓存 (object_id.json)
+  video_path: "videos/"        # 视频临时目录
+  audio_path: "audios/"        # 音频临时目录
+  keep_video: false            # 转录完成后保留视频
+  keep_audio: false            # 转录完成后保留音频
 
-# --------------------
-
-#选择是否启用代理ip
-proxies: 
-  #使能
-  enable: false
-  #Http IP http://127.0.0.1:7897
-  HTTP: "http://127.0.0.1:7897"
-  #Https IP http://127.0.0.1:7897
-  HTTPS: "http://127.0.0.1:7897"
-
-# --------------------
-
-# 搜索器选择 (可同时使用多个搜索器, 以 yaml 语法中 list 格式添加, `type`字段决定搜索器类型)
-# 可用的搜索器有: restApiSearcher jsonFileSearcher sqliteSearcher enncySearcher cxSearcher LemonSearcher OpenAISearcher TranscriptAISearcher
+# ---------------- 搜索器 ----------------
+# 自上而下依次调用, 先返回有效答案的搜索器优先; 典型顺序:
+#   本地题库(json/sqlite) -> 免费题库接口(cx/enncy/...) -> AI 搜索器(openai/gemini/transcript)
+# 各搜索器参数表: docs/configuration.md
 searchers:
 
-  # 本地 JSON 数据库搜索器 (key为题, value为答案)
-  # - type: jsonFileSearcher
-  #   file_path: "questions.json"  # 数据库文件路径
+  # 公共默认值: 仅对 AI 搜索器生效, 条目内写同名项即可覆盖(留空则继承)
+  defaults:
+    prompt: |
+      请回答下这个{type}：
+      {value}
+      {options}
+    system_prompt: |
+      你是一位专业的学习通题目答题助手。
 
-  # REST API 在线搜题
-  # - type: restApiSearcher
-  #   url: "http://10.50.9.10:8088/question/search"  # API URL 请进行替换
-  #   method: "POST"  # 请求方式
-  #   q_field: "question"  # 题目文本参数
-  #   o_field: null  # 选项文本参数 (可选)  用`#`分隔数据, 用来进一步匹配答案 (格式：选项A#选项B#选项C) 
-  #   headers:  # 自定义请求头 (可选) 使用 yaml 的 k-v 语法填写
-  #     # eg: Authorization: 'xxx'
-  #   ext_params: # 自定义扩展请求参数 (可选) 使用 yaml 的 k-v 语法填写
-  #     # eg: Token: 'xxx'
-  #   a_field: "$.data"  # 返回参数 使用 JSONPath 语法进行查询
+      请严格遵循以下规则作答：
+       - 单选题：只输出选项字母
+       - 判断题：只输出「对」或「错」
+       - 多选题：只输出选项字母，用英文逗号分隔(至少两个)
 
-  # Json API 在线搜题
-  # - type: JsonApiSearcher
-  #   url: "http://10.50.9.10:8088/question/search"  # API URL 请进行替换
-  #   q_field: "question"  # 题目参数名称
-  #   o_field: null  # 选项参数名称 (可选)  填写为用`#`分隔数据, 用来进一步匹配答案 (格式：选项A#选项B#选项C) 不填为{"A":"xxx","B":"xxx","C":"xxx","D":"xxx"}
-  #   headers:  # 自定义请求头 (可选) 使用 yaml 的 k-v 语法填写
-  #     # eg: Authorization: 'xxx'
-  #   ext_params: # 自定义扩展请求参数 (可选) 使用 yaml 的 k-v 语法填写
-  #     # eg: Token: 'xxx'
-  #   a_field: "$.data"  # 返回参数 使用 JSONPath 语法进行查询
-  
-  # 本地 sqlite 数据库搜索器
-  # - type: sqliteSearcher
-  #   file_path: "questions.db"  # 数据库文件路径
-  #   table: "question"  # 表名
-  #   req_field: "question"  # 请求字段
-  #   rsp_field: "answer"  # 返回字段
+      请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容。
 
-  # Enncy 题库搜索器，使用前请注册 https://tk.enncy.cn/
-  # - type: enncySearcher
-  #   token: "xxx"  # Enncy 题库 Token
-  
-  # 网课小工具(Go题)题库搜索器，使用前请获取Token https://cx.icodef.com/1-UserGuide/1-6-gettoken.html#%E8%8E%B7%E5%8F%96token
-  # - type: cxSearcher
-  #   token: "xxx"  # 网课小工具(Go题)题库 Token
-  # 题库海搜索源， 暂时可不用token 如若搜索失败 https://afdian.net/a/jiaoyu666 购买token
-  # - type: TiKuHaiSearcher
-  #   token: ***
+  # 搜索器列表
+  # type 必填(大小写不敏感, 可用类名或短别名), enabled 缺省为 true, note 仅用于日志/TUI 显示
+  # 可用 type: openai gemini transcript json jsonFile sqlite rest jsonApi cx enncy lemon tikuhai lyck6 muke
+  items:
 
-  # 冷月题库, 免费限制4秒一次请求
-  # - type: LyCk6Searcher
-  #   token: ***
+    # 本地 JSON 题库(离线, 题目为 key, 答案为 value)
+    # - type: json
+    #   file_path: "questions.json"
 
-  # Muke题库
-  # - type: MukeSearcher
-  
-  # 柠檬题库搜索器，使用前请注册 https://www.lemtk.xyz 获取token
-  # - type: LemonSearcher
-  #   token: "xxx"
+    # 本地 SQLite 题库
+    # - type: sqlite
+    #   file_path: "questions.db"
+    #   table: "question"
+    #   req_field: "question"
+    #   rsp_field: "answer"
 
-   # ChatGPT 在线答题
-   #- type: OpenAISearcher
-   #  base_url: "*" # API URL，可以换成一些国内代理站点例如 https://api.chatnio.net/v1/
-   #  api_key: "*"
-   #  model: "deepseek-ai/DeepSeek-V3.2-Exp" # 使用的模型型号，详见 https://platform.openai.com/docs/models/continuous-model-upgrades
-   #  system_prompt: "你是一位专业的学习通题目答题助手。\n\n请严格遵循以下规则作答：\n\n 多选题至少选择两个正确选项\n - 选项字母用英文逗号分隔\n\n输出格式：\n - 单选题：只输出选项字母\n - 判断题：只输出“对”或“错”\n - 多选题：只输出选项字母，用逗号分隔.\n\n请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容。"
-   #  prompt: "请回答下这个{type}：\n{value}\n{options}" 
-     # {type} ：题目类型 (单选题、多选题 等等)
-     # {value}：题干
-     # {options}：选项文本（eg:"选项：\nA. assurance;B. insurance;C. requirement;D. issure"），如果题目没有选项（如填空题），则为空
-   #  tools:  # 可选：OpenAI Tools/函数调用配置，用于约束模型返回结构化答案
-   #    - type: function
-   #      function:
-   #        name: answer_question
-   #        description: "回答题目"
-   #        parameters:
-   #          type: object
-   #          properties:
-   #            answer:
-   #              type: string
-   #              description: "题目的答案"
-   #          required: ["answer"]
-   #  tool_choice: "auto"  # 可选：auto（自动判断）/ none（不使用tool）/ required（必须调用tool）
-    
-  #gemini无apikey web版
-  - type: GeminiWebSearcher
-    proxy_enable: false #使用代理
-    proxy: "http://127.0.0.1:7897"
-    Secure_1PSID: "*" #gemini cookie中获取
-    Secure_1PSIDTS: "*" #gemini cookie中获取
-    model: "G-3.1-PRO" #模型 可选:G-3.1-PRO G-3.0-FLASH-THINKING G-3.0-FLASH
-    system_prompt: "system_prompt:你是一个学习通答题助手,你会得到一些有关题目,你需要回答这些题目,包括单选题,多选题,判断题,多选题至少选择两个选项,用逗号分隔答案.答案尽量通过网络搜索确认.输出格式:单选题：只输出选项字母 - 判断题：只输出“对”或“错” - 多选题：只输出选项字母，用逗号分隔.请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容."
-    prompt: "请回答下这个{type}：\n{value}\n{options}" 
-    # {type} ：题目类型 (单选题、多选题 等等)
-    # {value}：题干
-    # {options}：选项文本（eg:"选项：\nA. assurance;B. insurance;C. requirement;D. issure"），如果题目没有选项（如填空题），则为空
+    # 免费题库接口(需 token)
+    # - type: enncy
+    #   token: "***"
 
-  # 章节视频文稿 + AI 作答 (需开启 transcript.enable; 放在最后, 使题库搜索器结果优先)
-  # 文稿未就绪时会自动弃权, 不影响其他搜索器
-  # - type: TranscriptAISearcher
-  #   base_url: "https://api.openai.com/v1"  # OpenAI 兼容 API URL
-  #   api_key: "*"
-  #   model: "gpt-4o-mini"
-  #   wait_ready: 30            # 答题时文稿未就绪最多等待秒数, 超时本轮弃权
-  #   max_context_chars: 24000  # 章节文稿最大字符数, 超出则保留首尾
-  #   system_prompt: ""         # 留空使用内置提示词(已声明文稿可能有 ASR 识别错误)
-  #   prompt: ""                # 可用 {type} {value} {options} {transcript}
+    # AI 答题(OpenAI 兼容 API): 未填写的 prompt/system_prompt 继承上面的 defaults
+    - type: openai
+      enabled: false
+      note: "deepseek"
+      api_key: "sk-***"
+      base_url: "https://api.deepseek.com/v1"
+      model: "deepseek-chat"
+
+    # Gemini Web(网页版 cookie, 无需 API Key)
+    # - type: gemini
+    #   Secure_1PSID: "***"
+    #   Secure_1PSIDTS: "***"
+    #   model: "G-3.0-FLASH"
+
+    # 章节文稿作答(需 transcript.enable 与 tasks.video.download)
+    # - type: transcript
+    #   api_key: "sk-***"
+    #   base_url: "https://api.deepseek.com/v1"
+    #   model: "deepseek-chat"

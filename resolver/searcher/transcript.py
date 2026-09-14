@@ -84,7 +84,23 @@ def _format_options(question: QuestionModel) -> str:
 
 
 class TranscriptAISearcher(SearcherBase):
-    """章节视频文稿 + OpenAI 兼容 API 答题器"""
+    """章节视频文稿 + OpenAI 兼容 API 答题器
+
+    配置项: api_key / base_url / model(必填),
+    system_prompt / prompt / wait_ready / max_context_chars(可选)
+    """
+
+    #: 搜索器加载器使用的参数表
+    CONFIG_KEYS = {
+        "api_key",
+        "base_url",
+        "model",
+        "system_prompt",
+        "prompt",
+        "wait_ready",
+        "max_context_chars",
+    }
+    REQUIRED_CONFIG_KEYS = {"api_key", "base_url", "model"}
 
     def __init__(self, **config) -> None:
         super().__init__()

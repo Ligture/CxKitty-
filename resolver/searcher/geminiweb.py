@@ -11,9 +11,36 @@ from cxapi.schema import QuestionModel
 from . import SearcherBase, SearcherResp
 from logger import Logger
 
+_DEFAULT_MODEL = "G-3.0-FLASH"
+_DEFAULT_PROMPT = "请回答下这个{type}：\n{value}\n{options}"
+_DEFAULT_SYSTEM_PROMPT = (
+    "你是一位专业的学习通题目答题助手，你会得到一些有关题目，你需要回答这些题目，"
+    "包括单选题、多选题、判断题，多选题至少选择两个选项，用逗号分隔答案。\n\n"
+    "输出格式:\n - 单选题：只输出选项字母\n - 判断题：只输出「对」或「错」\n"
+    " - 多选题：只输出选项字母，用逗号分隔。\n\n"
+    "请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容。"
+)
+
 
 class GeminiWebSearcher(SearcherBase):
-    """Gemini Web 在线答题器"""
+    """Gemini Web 在线答题器
+
+    配置项: Secure_1PSID / Secure_1PSIDTS(必填),
+    model / system_prompt / prompt / proxy_enable / proxy(可选)
+    """
+
+    #: 搜索器加载器使用的参数表
+    CONFIG_KEYS = {
+        "Secure_1PSID",
+        "Secure_1PSIDTS",
+        "model",
+        "system_prompt",
+        "prompt",
+        "proxy_enable",
+        "proxy",
+    }
+    REQUIRED_CONFIG_KEYS = {"Secure_1PSID", "Secure_1PSIDTS"}
+
     client: GeminiClient
     config: dict
 
@@ -21,7 +48,15 @@ class GeminiWebSearcher(SearcherBase):
         super().__init__()
         self.client = None
         self.chat = None
-        self.config = config
+        # 留空的配置项回退默认值
+        self.config = {
+            **config,
+            "model": config.get("model") or _DEFAULT_MODEL,
+            "prompt": config.get("prompt") or _DEFAULT_PROMPT,
+            "system_prompt": config.get("system_prompt") or _DEFAULT_SYSTEM_PROMPT,
+            "proxy_enable": bool(config.get("proxy_enable", False)),
+            "proxy": config.get("proxy") or "",
+        }
         self.give_system_prompt = False
         self.logger = Logger("GeminiWebSearcher")
         self.system_prompt = self.config["system_prompt"]
@@ -41,9 +76,10 @@ class GeminiWebSearcher(SearcherBase):
     async def gemini_init(self):
         proxy = None
         if self.config["proxy_enable"]:
-            proxy = self.config["proxy"]
-
-            self.logger.info(f"GeminiWeb 客户端已配置代理: {proxy}")
+            # 未单独配置时回退全局代理(network.proxy)
+            proxy = self.config["proxy"] or (cfg.HTTP if cfg.HTTP_EN else None)
+            if proxy:
+                self.logger.info(f"GeminiWeb 客户端已配置代理: {proxy}")
         self.client = GeminiClient(self.config["Secure_1PSID"], self.config["Secure_1PSIDTS"], proxy=proxy)
         await self.client.init(timeout=30, auto_close=False, close_delay=300, auto_refresh=True)
         self.chat = self.client.start_chat(model=self.model)

@@ -98,9 +98,10 @@ config.py / config.yml.example    # 新增配置段(见 §6)
 ## 6. 配置设计(config.yml)
 
 ```yaml
-video:
-  # ...现有 enable/wait/speed/report_rate 不变
-  download: true            # 刷课时下载视频(转录的前置)
+tasks:
+  video:
+    # ...现有 enable/wait/speed/report_rate 不变
+    download: true          # 刷课时下载视频(转录的前置)
 
 transcript:
   enable: true
@@ -112,12 +113,13 @@ transcript:
   keep_audio: false
 
 searchers:
-  # ...现有搜索器不动,新增:
-  - type: TranscriptAISearcher
-    base_url: "..."         # OpenAI 兼容 API,复用 OpenAISearcher 的配置习惯
-    api_key: "..."
-    model: "..."
-    wait_ready: 30          # 答题时文稿未就绪则最多等待秒数,超时本轮弃权(返回未匹配,不影响其他搜索器)
+  items:
+    # ...现有搜索器不动,新增:
+    - type: transcript
+      base_url: "..."       # OpenAI 兼容 API,复用 openai 搜索器的配置习惯
+      api_key: "..."
+      model: "..."
+      wait_ready: 30        # 答题时文稿未就绪则最多等待秒数,超时本轮弃权(返回未匹配,不影响其他搜索器)
 ```
 
 ## 7. 时序与并发要点

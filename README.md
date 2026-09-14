@@ -168,17 +168,19 @@ docker run -it \
 
 ### 主程序配置
 
-配置文件使用 Yaml 语法编写，存放于 [config.yml](config.yml)
+配置文件为 `config.yml`（Yaml 语法，示例见 [config.yml.example](config.yml.example)），采用**分段格式**：`runtime`（运行 / 界面）、`paths`（目录）、`proxy`（网络代理）、`tasks`（刷课任务）、`transcript`（视频转录）、`searchers`（题库与 AI 搜索器）各自成段。
 
-请根据注释修改配置内容
+字段含义、搜索器参数表与完整示例见 [docs/configuration.md](docs/configuration.md)
+
+> 旧版扁平格式（`session_path:`、`proxies:` 等直接写在顶层）仍可读取，启动时会提示兼容；执行 `python scripts/migrate_config.py` 可迁移到新格式（原文件自动备份）
 
 ### 人脸识别配置
 
-人脸识别图片要求必须 .jpg 格式，存放于`face_image_path`配置的路径下，默认为`faces/`
+人脸识别图片要求必须 .jpg 格式，存放于 `paths.faces` 配置的路径下（默认 `faces/`）
 
-若`fetch_uploaded_face`字段为`true`，在登录成功后立即尝试拉取该用户预先上传的人脸图片，成功后以用户 puid 命名（eg：`114514.jpg`），存放于`face_image_path`配置的路径下，以备需要识别时读取
+若 `runtime.fetch_uploaded_face` 为 `true`，在登录成功后立即尝试拉取该用户预先上传的人脸图片，成功后以用户 puid 命名（eg：`114514.jpg`），存放于 `paths.faces` 配置的路径下，以备需要识别时读取
 
-人脸识别图片还可以自定义，要求图片文件名以 puid 命名，存放于`face_image_path`配置的路径下，但需要注意将`fetch_uploaded_face`设置为`false`，否则登录成功后会被覆盖
+人脸识别图片还可以自定义，要求图片文件名以 puid 命名，存放于 `paths.faces` 配置的路径下，但需要把 `runtime.fetch_uploaded_face` 设为 `false`，否则登录成功后会被覆盖
 
 也可以为每个自定义一组多张人脸图片，图片以 puid+序号 命名（eg：`114514_1.jpg`、`114514_2.jpg`），程序中使用正则`/\d+(_d+)?\.jpg/`遍历筛选，需要识别人脸时会从这组图片中随机抽取一张并上传
 
@@ -186,9 +188,9 @@ docker run -it \
 
 单选题问题与答案应当一一对应，多选题使用`#`或`;`分隔每个选项，判断题答案只能为`对`、`错`、`正确`、`错误`、`√`、`×`
 
-REST API 搜题接口配置，确保接口`searcher->restApiSearcher->url`可以正确访问访问（若使用 Docker 搭建，而题库 API 服务在宿主机运行，应使用宿主机虚拟网关 IP 地址而不是本地回环地址）
+REST API 搜题接口配置，确保 `searchers.items` 中 `type: rest` 条目的 `url` 可以正确访问（若使用 Docker 搭建，而题库 API 服务在宿主机运行，应使用宿主机虚拟网关 IP 地址而不是本地回环地址）
 
-返回值必须为 JSON 格式，使用`rsp_field`字段作为选择器传入，使用 [JsonPath](https://goessner.net/articles/JsonPath/) 语法编写，如`$.data`或`$.data.answer[*]`等
+返回值必须为 JSON 格式，使用 `a_field` 字段作为选择器传入，使用 [JsonPath](https://goessner.net/articles/JsonPath/) 语法编写，如`$.data`或`$.data.answer[*]`等
 
 eg：
 
@@ -206,7 +208,7 @@ curl 'http://127.0.0.1:88/v1/cx' \
 }
 ```
 
-JSON 题库，确保`searcher->jsonFileSearcher->file_path`可以访问（使用 Docker 需要设置映射），key 为题目，value 为与之对应的答案
+JSON 题库，确保 `searchers.items` 中 `type: json` 条目的 `file_path` 可以访问（使用 Docker 需要设置映射），key 为题目，value 为与之对应的答案
 
 eg：
 
@@ -216,7 +218,7 @@ eg：
 }
 ```
 
-SQLite 题库，确保`searcher->sqliteSearcher->file_path`可以访问（使用 Docker 需要设置映射），表中应存在配置的请求和响应字段
+SQLite 题库，确保 `searchers.items` 中 `type: sqlite` 条目的 `file_path` 可以访问（使用 Docker 需要设置映射），表中应存在配置的请求和响应字段
 
 eg：
 
@@ -269,7 +271,7 @@ powershell -ExecutionPolicy Bypass -File scripts/install-asr.ps1 -SkipModelDownl
 
 **配置项**（`config.yml`）
 
-- `video.download`：刷课时下载视频（转录前置，仅在 `transcript.enable` 开启时生效）
+- `tasks.video.download`：刷课时下载视频（转录前置，仅在 `transcript.enable` 开启时生效）
 - `transcript.enable`：总开关，默认 `false`
 - `transcript.model_root`：模型根目录，需含 `sensevoice-small/`（约 900MB）与 `fsmn-vad/`
 - `transcript.device`：`auto`（有 cuda 用 cuda）/ `cpu` / `cuda:0`
@@ -277,10 +279,10 @@ powershell -ExecutionPolicy Bypass -File scripts/install-asr.ps1 -SkipModelDownl
 - `transcript.cache_path`：转录缓存目录，`{object_id}.json` 以视频唯一标识去重，重复刷课直接命中
 - `transcript.keep_video` / `keep_audio`：转录完成后是否保留 `videos/`、`audios/`（转录失败时会保留视频以便重试）
 
-**搜索器配置**（`searchers` 中新增一项，可与题库搜索器同时使用）
+**搜索器配置**（在 `searchers.items` 中新增一项，可与题库搜索器同时使用；参数表见 [docs/configuration.md](docs/configuration.md#搜索器)）
 
 ```yaml
-- type: TranscriptAISearcher
+- type: transcript
   base_url: "https://api.deepseek.com/v1"   # 任意 OpenAI 兼容 API
   api_key: "sk-***"
   model: "deepseek-chat"

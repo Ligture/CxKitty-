@@ -1,4 +1,5 @@
 import difflib
+import inspect
 import random
 import re
 import secrets
@@ -60,29 +61,141 @@ SEARCHERS = {
 }
 
 
+#: type 字段的短别名(大小写不敏感)
+SEARCHER_ALIASES = {
+    "json": "JsonFileSearcher",
+    "jsonfile": "JsonFileSearcher",
+    "sqlite": "SqliteSearcher",
+    "rest": "RestApiSearcher",
+    "restapi": "RestApiSearcher",
+    "jsonapi": "JsonApiSearcher",
+    "cx": "CxSearcher",
+    "enncy": "EnncySearcher",
+    "tikuhai": "TiKuHaiSearcher",
+    "lyck6": "LyCk6Searcher",
+    "muke": "MukeSearcher",
+    "lemon": "LemonSearcher",
+    "openai": "OpenAISearcher",
+    "gemini": "GeminiWebSearcher",
+    "geminiweb": "GeminiWebSearcher",
+    "transcript": "TranscriptAISearcher",
+    "transcriptai": "TranscriptAISearcher",
+}
+
+
+def _resolve_searcher_class(raw_type) -> type:
+    """把配置中的 type 解析为搜索器类(大小写不敏感, 支持短别名)
+
+    Args:
+        raw_type: 配置里的 type 字段
+
+    Returns:
+        搜索器类
+    """
+    if not isinstance(raw_type, str) or not raw_type.strip():
+        raise AttributeError("搜索器条目缺少 type 字段(例如 type: openai)")
+    name = raw_type.strip()
+    if name in SEARCHERS:
+        return SEARCHERS[name]
+    folded = name.casefold()
+    for class_name, cls in SEARCHERS.items():
+        if class_name.casefold() == folded:
+            return cls
+    if alias := SEARCHER_ALIASES.get(folded):
+        return SEARCHERS[alias]
+    similar = difflib.get_close_matches(name, [*SEARCHERS, *SEARCHER_ALIASES], n=3, cutoff=0.5)
+    hint = f", 是否想用: {', '.join(similar)}" if similar else ""
+    raise AttributeError(f"未知的搜索器 type `{name}`{hint}; 可用: {', '.join(sorted(SEARCHERS))}")
+
+
+def _search_config_keys(cls: type) -> tuple[set[str], set[str]]:
+    """返回搜索器的 (允许的配置键, 必填配置键)
+
+    搜索器可自行声明 ``CONFIG_KEYS`` / ``REQUIRED_CONFIG_KEYS``;
+    未声明时(定参构造函数)从参数表推导。
+    """
+    keys = getattr(cls, "CONFIG_KEYS", None)
+    if keys:
+        return set(keys), set(getattr(cls, "REQUIRED_CONFIG_KEYS", ()) or ())
+    params = inspect.signature(cls.__init__).parameters
+    allowed = {
+        name
+        for name, param in params.items()
+        if name != "self" and param.kind in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY)
+    }
+    required = {
+        name
+        for name, param in params.items()
+        if name != "self"
+        and param.kind in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY)
+        and param.default is inspect.Parameter.empty
+    }
+    return allowed, required
+
+
+def _accepts_extras(cls: type) -> bool:
+    """搜索器是否接受任意关键字参数(即可以继承 searchers.defaults)"""
+    return any(
+        param.kind is inspect.Parameter.VAR_KEYWORD
+        for param in inspect.signature(cls.__init__).parameters.values()
+    )
+
+
+def build_searcher(entry: dict):
+    """按配置构建单个搜索器实例
+
+    Args:
+        entry: ``searchers.items`` 中的一个条目
+
+    Returns:
+        搜索器实例; 条目被显式关闭(``enabled: false``)时返回 None
+    """
+    conf = dict(entry)
+    raw_type = conf.get("type")
+    if conf.pop("enabled", True) is False:
+        return None
+    note = str(conf.pop("note", "") or "").strip()
+    cls = _resolve_searcher_class(conf.pop("type", None))
+    label = note or str(raw_type)
+
+    # AI 搜索器(**config)继承 searchers.defaults 中的提示词等默认值
+    if _accepts_extras(cls) and config.SEARCHER_DEFAULTS:
+        conf = {**config.SEARCHER_DEFAULTS, **conf}
+
+    allowed, required = _search_config_keys(cls)
+    if unknown := sorted(set(conf) - allowed):
+        raise AttributeError(
+            f"搜索器 [{label}] 存在未知配置项: {', '.join(unknown)}; "
+            f"可用配置项: {', '.join(sorted(allowed))}"
+        )
+    if missing := sorted(required - set(conf)):
+        raise AttributeError(f"搜索器 [{label}] 缺少必填配置项: {', '.join(missing)}")
+
+    built = cls(**conf)
+    if note:
+        built.note = note
+    return built
+
+
 @lru_cache(maxsize=128)
 def load_searcher() -> MultiSearcherWraper:
     """加载搜索器实例 缓存最终加载结果
+
     Returns:
         MultiSearcherWraper: 多搜索器封装
     """
-    searcher = MultiSearcherWraper()
-    # 检查题库后端配置
     if not config.SEARCHERS:
-        raise AttributeError("请先配置题库后端再运行，如不需要使用答题功能请修改config.yml进行关闭。")
-    # 按需实例化并添加搜索器
-    for searcher_conf in config.SEARCHERS:
-        # 复制一份再改, 避免 `del type` 污染 config.SEARCHERS 导致二次加载 KeyError
-        searcher_conf = dict(searcher_conf)
-        typename = searcher_conf["type"]
-        typename = typename[0].upper() + typename[1:]
-        if typename not in SEARCHERS:
-            raise AttributeError(f'Searcher "{typename}" not found')
-        del searcher_conf["type"]
-        # 动态加载搜索器类
-        searcher.add(SEARCHERS[typename](**searcher_conf))
-
-    return searcher
+        raise AttributeError(
+            "未配置任何搜索器: 请在 config.yml 的 searchers.items 中至少启用一个搜索器; "
+            "若不需要自动答题, 可关闭 tasks.work.enable"
+        )
+    wrapper = MultiSearcherWraper()
+    for entry in config.SEARCHERS:
+        if (built := build_searcher(entry)) is not None:
+            wrapper.add(built)
+    if not wrapper.slot:
+        raise AttributeError("所有搜索器都被禁用(enabled: false), 请至少启用一个搜索器")
+    return wrapper
 
 
 def clear_searcher_cache():
@@ -128,6 +241,13 @@ class MyTable(Table):
         self.rows.insert(0, Row(style=style))
 
 
+def _searcher_label(searcher) -> str:
+    """搜索器展示名: 配置了 note 时附带 note(便于在 TUI 中区分同类搜索器)"""
+    label = searcher.__class__.__name__
+    note = getattr(searcher, "note", "")
+    return f"{label}[{note}]" if note else label
+
+
 class SearchRespShowComp:
     """搜索结果展示组件
     用于 TUI 显示
@@ -148,7 +268,7 @@ class SearchRespShowComp:
                 Text("a: ", end=""),
                 Styled(
                     Group(
-                        Text(f"{result.searcher.__class__.__name__}", end=" "),
+                        Text(f"{_searcher_label(result.searcher)}", end=" "),
                         Text(
                             "Ok" if result.code == 0 else f"Err {result.code}:{result.message}",
                             end="",

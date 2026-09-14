@@ -6,17 +6,42 @@ from cxapi.schema import QuestionModel
 from . import SearcherBase, SearcherResp
 from logger import Logger
 
+_DEFAULT_BASE_URL = "https://api.openai.com/v1"
+_DEFAULT_MODEL = "gpt-4o-mini"
+_DEFAULT_PROMPT = "请回答下这个{type}：\n{value}\n{options}"
+_DEFAULT_SYSTEM_PROMPT = (
+    "你是一位专业的学习通题目答题助手。\n\n"
+    "请严格遵循以下规则作答：\n"
+    " - 单选题：只输出选项字母\n"
+    " - 判断题：只输出「对」或「错」\n"
+    " - 多选题：只输出选项字母，用英文逗号分隔(至少两个)\n\n"
+    "请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容。"
+)
+
 
 class OpenAISearcher(SearcherBase):
-    """ChatGPT 在线答题器"""
+    """ChatGPT 在线答题器
+
+    配置项: api_key(必填), base_url / model / system_prompt / prompt / tools / tool_choice(可选)
+    """
+
+    #: 搜索器加载器使用的参数表
+    CONFIG_KEYS = {"api_key", "base_url", "model", "system_prompt", "prompt", "tools", "tool_choice"}
+    REQUIRED_CONFIG_KEYS = {"api_key"}
 
     client: OpenAI
     config: dict
 
     def __init__(self, **config) -> None:
         super().__init__()
-        self.config = config
-        self.client = OpenAI(api_key=config["api_key"], base_url=config["base_url"])
+        # 留空的配置项回退默认值
+        self.config = {
+            **config,
+            "base_url": config.get("base_url") or _DEFAULT_BASE_URL,
+            "model": config.get("model") or _DEFAULT_MODEL,
+            "prompt": config.get("prompt") or _DEFAULT_PROMPT,
+            "system_prompt": config.get("system_prompt") or _DEFAULT_SYSTEM_PROMPT,
+        }
         self.logger = Logger("OpenAISearcher")
         # 强制客户端忽略 Clash 等系统代理
         proxy_url = None
@@ -32,8 +57,8 @@ class OpenAISearcher(SearcherBase):
         http_client = httpx.Client(trust_env=False, proxy=proxy_url)
 
         self.client = OpenAI(
-            api_key=config["api_key"],
-            base_url=config["base_url"],
+            api_key=self.config["api_key"],
+            base_url=self.config["base_url"],
             http_client=http_client,
         )
 
