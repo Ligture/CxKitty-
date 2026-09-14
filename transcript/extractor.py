@@ -49,7 +49,7 @@ def find_ffmpeg() -> Optional[str]:
 
 
 def ffmpeg_status() -> dict:
-    """返回 ffmpeg 就绪状态(供启动探测与 WebUI 展示)
+    """返回 ffmpeg 就绪状态(供启动探测)
 
     Returns:
         dict: ``{"ready": bool, "path": str|None, "hint": str}``

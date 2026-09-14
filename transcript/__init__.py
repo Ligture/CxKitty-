@@ -31,7 +31,6 @@ from .errors import TranscriptError, TranscriptionError
 from .worker import (
     VideoJob,
     TranscriptWorker,
-    apply_settings_override,
     enqueue_video,
     get_worker,
     is_enabled,
@@ -47,7 +46,6 @@ __all__ = [
     "TranscriptionError",
     # 配置 / 生命周期
     "settings",
-    "apply_settings_override",
     "is_enabled",
     "startup_report",
     "log_startup_report",

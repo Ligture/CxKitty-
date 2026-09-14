@@ -1,13 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \"import py_compile; py_compile.compile\\('webui.py', doraise=True\\); py_compile.compile\\('webui_backend.py', doraise=True\\); py_compile.compile\\('config.py', doraise=True\\); py_compile.compile\\('resolver/question.py', doraise=True\\); print\\('All syntax OK'\\)\")",
       "Bash(awk '{print $5, $NF}')",
-      "Bash(python -c \"from server.database import SessionManager, TaskOrchestrator; print\\('SessionManager OK'\\); print\\('TaskOrchestrator OK'\\)\")",
-      "Bash(python -c \"import fastapi; import uvicorn; import socketio; print\\('fastapi:', fastapi.__version__\\); print\\('uvicorn:', uvicorn.__version__\\); print\\('socketio \\(python\\):', socketio.__version__\\)\")",
-      "Bash(poetry run *)",
-      "Bash(npx tsc *)",
-      "Bash(npx vite *)"
+      "Bash(poetry run *)"
     ]
   }
 }

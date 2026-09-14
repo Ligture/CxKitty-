@@ -43,24 +43,6 @@ _DEFAULT_SETTINGS = {
 _STOP = object()
 _worker_lock = threading.Lock()
 _worker: Optional["TranscriptWorker"] = None
-# WebUI 等调用方可注入本次运行的配置快照, 优先级高于 config.yml
-_runtime_override: Optional[dict] = None
-_runtime_video: Optional[dict] = None
-
-
-def apply_settings_override(raw: Optional[dict], video: Optional[dict] = None) -> None:
-    """注入运行时配置(优先于 ``config.yml`` 的 ``transcript`` / ``video`` 段)
-
-    WebUI 的任务运行在独立线程中使用配置快照, 与 ``config`` 模块全局变量不同步,
-    因此需要显式把配置推给本模块。传 None 表示恢复读取 config.yml。
-
-    Args:
-        raw: ``config.yml`` 中的 transcript 段
-        video: ``config.yml`` 中的 video 段(用于读取 ``download`` 开关)
-    """
-    global _runtime_override, _runtime_video
-    _runtime_override = dict(raw) if isinstance(raw, dict) else None
-    _runtime_video = dict(video) if isinstance(video, dict) else None
 
 
 def settings() -> dict:
@@ -69,7 +51,7 @@ def settings() -> dict:
     Returns:
         dict: 规范化后的配置字典
     """
-    raw = _runtime_override if _runtime_override is not None else getattr(cfg, "TRANSCRIPT", None)
+    raw = getattr(cfg, "TRANSCRIPT", None)
     if not isinstance(raw, dict):
         raw = {}
     result = dict(_DEFAULT_SETTINGS)
@@ -90,8 +72,8 @@ def is_enabled() -> bool:
     """转录管道是否开启(含 ``video.download`` 开关)"""
     if not settings()["enable"]:
         return False
-    video = _runtime_video if _runtime_video is not None else (getattr(cfg, "VIDEO", None) or {})
-    return bool((video or {}).get("download", True))
+    video = getattr(cfg, "VIDEO", None) or {}
+    return bool(video.get("download", True))
 
 
 @dataclass
@@ -182,7 +164,7 @@ class TranscriptWorker:
         self.logger.info("转录 worker 线程已停止")
 
     def status(self) -> dict:
-        """返回 worker 运行状态(供 WebUI / 日志展示)"""
+        """返回 worker 运行状态(供日志展示)"""
         return {
             "alive": bool(self._thread is not None and self._thread.is_alive()),
             "pending": self._queue.qsize(),
@@ -523,7 +505,6 @@ __all__ = [
     "is_enabled",
     "get_worker",
     "reset_worker",
-    "apply_settings_override",
     "enqueue_video",
     "prime_chapter",
     "dependency_status",

@@ -1,6 +1,6 @@
 # 视频转录辅助答题方案(SenseVoiceSmall)
 
-> 状态:**P0 + P1 已实施**, P2 部分实施(WebUI 状态接口与 worker 接入已完成; ananas 字幕直取与断点续传未做)
+> 状态:**P0 + P1 已实施**, P2 部分实施(ananas 字幕直取与断点续传未做; WebUI 已放弃并从项目移除)
 > 目标:刷课过程中将章节视频下载→提取音频→本地 SenseVoiceSmall 转录→按章节缓存文稿→答题时作为上下文交给 AI,降低单 AI 搜索器的错误率
 
 ## 实施记录
@@ -9,20 +9,20 @@
 |---|---|---|
 | §3 新增模块 | ✅ | `transcript/{downloader,extractor,asr,cache,worker,context,errors}.py`(额外拆出 `errors.py` 存放异常) |
 | §5.1 保留视频直链 | ✅ | `cxapi/task_point/video.py` 新增 `http` 字段, hls-only 记 warning |
-| §5.2 视频入队 | ✅ | `main.py` 视频分支 / `server/services/workers.py` 视频分支 |
+| §5.2 视频入队 | ✅ | `main.py` 视频分支 |
 | §5.3 章节文稿指针 | ✅ | `main.py` 测验分支前 `set_current_knowledge_id`, 考试前清空 |
-| §6 配置项 | ✅ | `config.py`(含 `reload_config`)、`config.yml.example`、`server/models/config_models.py` |
+| §6 配置项 | ✅ | `config.py`、`config.yml.example` |
 | §6 TranscriptAISearcher | ✅ | `resolver/searcher/transcript.py`, 注册进 `SEARCHERS` |
 | §7 弃权而非阻塞 | ✅ | 文稿未就绪按 `wait_ready` 等待后返回未匹配; 无可期待任务时不再空等 |
 | §2 移植资产 | ✅ | `transcript/asr.py`(去 `paths.py` 依赖, model_root 由配置注入), `scripts/install-asr.ps1` |
 | P2 ananas 字幕直取 | ⬜ | 未做(需 ananas 响应含 `subtitle` 字段) |
 | P2 失败重试/断点续传 | 🟡 | 转录失败保留视频, 重跑复用已下载视频; 未做进程重启级断点 |
-| P2 WebUI 接入 | ✅ | 同一 worker + `GET /api/transcript/status` + 搜索器模板 |
+| ~~P2 WebUI 接入~~ | ❌ | 已放弃: `web/`(React 前端)、`server/`(FastAPI 后端)与 WebUI 专用代码均已删除 |
 
 实施中补充的两点(计划外但必要):
 
 1. `transcript/worker.py` 为转录日志单独挂 `logs/transcript.log` 文件 handler 并关闭向 root 传播——`Logger` 默认不挂 handler, 否则后台进度会丢失, 且 warning 会经 `lastResort` 写 stderr 干扰 rich Live 渲染。
-2. `resolver/question.py` 的 `load_searcher()` 原先会 `del searcher_conf["type"]` 污染 `config.SEARCHERS`, 导致 `clear_searcher_cache()` 后二次加载 `KeyError`(WebUI 每次任务都会触发); 已改为先复制字典。
+2. `resolver/question.py` 的 `load_searcher()` 原先会 `del searcher_conf["type"]` 污染 `config.SEARCHERS`, 导致 `clear_searcher_cache()` 后二次加载 `KeyError`(每次任务重复加载时触发); 已改为先复制字典。
 
 ## 1. 总体思路
 
@@ -142,6 +142,6 @@ searchers:
 
 - **P0(管道,约 250–300 行)**:video.py 留直链 → downloader/extractor/asr/cache/worker 落地,跑通"刷课→transcripts/ 出 JSON",答题不接入。验证产物与耗时。
 - **P1(注入,约 150–200 行)**:context 注册表 + TranscriptAISearcher + main.py 两个钩子 + 配置项,打通"文稿→AI 作答",与题库搜索器并行对比正确率。
-- **P2(优化,可选)**:ananas 响应自带 `subtitle` 字段时直接拉字幕跳过 ASR;`server/` WebUI 端接入同一 worker;失败重试与断点续传。
+- **P2(优化,可选)**:ananas 响应自带 `subtitle` 字段时直接拉字幕跳过 ASR;失败重试与断点续传。(WebUI 已放弃, 不再作为交付项)
 
 预计 P0+P1 合计 1–2 个工作日,主要不确定性在 prompt 调优与真实课程的正确率验证,而非管道本身。

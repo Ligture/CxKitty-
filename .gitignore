@@ -132,10 +132,6 @@ dmypy.json
 .vscode/
 .idea/
 
-# Frontend build artifacts
-web/dist/
-web/node_modules/
-
 session/*.json
 questions.*
 export/*

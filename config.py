@@ -1,10 +1,7 @@
-import threading
 import warnings
 from pathlib import Path
 
 import yaml
-
-_config_lock = threading.Lock()
 
 try:
     with open("config.yml", "r", encoding="utf8") as fp:
@@ -61,24 +58,3 @@ DOCUMENT_WAIT: int = DOCUMENT.get("wait", 15)
 # 搜索器配置
 SEARCHERS: list = conf.get("searchers", [])
 
-
-def reload_config():
-    """重新从 config.yml 加载配置 (供 WebUI worker 线程使用, 线程安全)"""
-    import config as cfg
-    with _config_lock:
-        with open("config.yml", "r", encoding="utf8") as fp:
-            new_conf = yaml.load(fp, yaml.FullLoader) or {}
-        cfg.WORK = new_conf.get("work", {})
-        cfg.VIDEO = new_conf.get("video", {})
-        cfg.DOCUMENT = new_conf.get("document", {})
-        cfg.EXAM = new_conf.get("exam", {})
-        cfg.TRANSCRIPT = new_conf.get("transcript", {})
-        cfg.SEARCHERS = new_conf.get("searchers", [])
-        cfg.WORK_EN = cfg.WORK.get("enable", True)
-        cfg.VIDEO_EN = cfg.VIDEO.get("enable", True)
-        cfg.DOCUMENT_EN = cfg.DOCUMENT.get("enable", True)
-        cfg.VIDEO_DOWNLOAD = cfg.VIDEO.get("download", True)
-        cfg.TRANSCRIPT_EN = cfg.TRANSCRIPT.get("enable", False)
-        cfg.WORK_WAIT = cfg.WORK.get("wait", 15)
-        cfg.VIDEO_WAIT = cfg.VIDEO.get("wait", 15)
-        cfg.DOCUMENT_WAIT = cfg.DOCUMENT.get("wait", 15)

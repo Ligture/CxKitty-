@@ -129,7 +129,7 @@ def wait_for_text(knowledge_id, timeout: float = 0.0, poll_interval: float = 1.0
 
 
 def chapter_sizes() -> dict[int, int]:
-    """返回各章节已注册的视频数量(调试 / WebUI 用)"""
+    """返回各章节已注册的视频数量(调试用)"""
     with _lock:
         return {kid: len(entries) for kid, entries in _chapters.items()}
 

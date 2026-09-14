@@ -295,7 +295,6 @@ powershell -ExecutionPolicy Bypass -File scripts/install-asr.ps1 -SkipModelDownl
 - `transcripts/{object_id}.json`：`object_id / title / knowledge_id / duration / transcribed_at / language / text / segments`
 - `videos/`、`audios/`：临时文件，按上面的开关清理（已在 `.gitignore` 中忽略）
 - `logs/transcript.log`：后台转录进度（worker 线程只写日志，不触碰 TUI）
-- WebUI 可在 `GET /api/transcript/status` 查看 ffmpeg / 模型 / 依赖与队列状态
 
 ## 📖Usage & Demo
 
