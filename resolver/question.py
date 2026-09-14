@@ -81,6 +81,11 @@ def load_searcher() -> MultiSearcherWraper:
     return searcher
 
 
+def clear_searcher_cache():
+    """清除搜索器缓存 (配置变更后调用)"""
+    load_searcher.cache_clear()
+
+
 class MyTable(Table):
     def push_row(
         self,

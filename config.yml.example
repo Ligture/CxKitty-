@@ -131,16 +131,29 @@ searchers:
   # - type: LemonSearcher
   #   token: "xxx"
 
-  # ChatGPT 在线答题
-  #- type: OpenAISearcher
-  #  base_url: "*" # API URL，可以换成一些国内代理站点例如 https://api.chatnio.net/v1/
-  #  api_key: "*"
-  #  model: "deepseek-ai/DeepSeek-V3.2-Exp" # 使用的模型型号，详见 https://platform.openai.com/docs/models/continuous-model-upgrades
-  #  system_prompt: "你是一位专业的学习通题目答题助手。\n\n请严格遵循以下规则作答：\n\n 多选题至少选择两个正确选项\n - 选项字母用英文逗号分隔\n\n输出格式：\n - 单选题：只输出选项字母\n - 判断题：只输出“对”或“错”\n - 多选题：只输出选项字母，用逗号分隔.\n\n请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容。"
-  #  prompt: "请回答下这个{type}：\n{value}\n{options}" 
-    # {type} ：题目类型 (单选题、多选题 等等)
-    # {value}：题干
-    # {options}：选项文本（eg:"选项：\nA. assurance;B. insurance;C. requirement;D. issure"），如果题目没有选项（如填空题），则为空
+   # ChatGPT 在线答题
+   #- type: OpenAISearcher
+   #  base_url: "*" # API URL，可以换成一些国内代理站点例如 https://api.chatnio.net/v1/
+   #  api_key: "*"
+   #  model: "deepseek-ai/DeepSeek-V3.2-Exp" # 使用的模型型号，详见 https://platform.openai.com/docs/models/continuous-model-upgrades
+   #  system_prompt: "你是一位专业的学习通题目答题助手。\n\n请严格遵循以下规则作答：\n\n 多选题至少选择两个正确选项\n - 选项字母用英文逗号分隔\n\n输出格式：\n - 单选题：只输出选项字母\n - 判断题：只输出“对”或“错”\n - 多选题：只输出选项字母，用逗号分隔.\n\n请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容。"
+   #  prompt: "请回答下这个{type}：\n{value}\n{options}" 
+     # {type} ：题目类型 (单选题、多选题 等等)
+     # {value}：题干
+     # {options}：选项文本（eg:"选项：\nA. assurance;B. insurance;C. requirement;D. issure"），如果题目没有选项（如填空题），则为空
+   #  tools:  # 可选：OpenAI Tools/函数调用配置，用于约束模型返回结构化答案
+   #    - type: function
+   #      function:
+   #        name: answer_question
+   #        description: "回答题目"
+   #        parameters:
+   #          type: object
+   #          properties:
+   #            answer:
+   #              type: string
+   #              description: "题目的答案"
+   #          required: ["answer"]
+   #  tool_choice: "auto"  # 可选：auto（自动判断）/ none（不使用tool）/ required（必须调用tool）
     
   #gemini无apikey web版
   - type: GeminiWebSearcher

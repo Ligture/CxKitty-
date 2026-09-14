@@ -18,21 +18,23 @@ class OpenAISearcher(SearcherBase):
         self.config = config
         self.client = OpenAI(api_key=config["api_key"], base_url=config["base_url"])
         self.logger = Logger("OpenAISearcher")
-        proxies = None
+        # 强制客户端忽略 Clash 等系统代理
+        proxy_url = None
         if cfg.HTTP_EN:
-            proxies = {
-                "http://": cfg.HTTP,
-                "https://": cfg.HTTPS,
-            }
-            self.logger.info(f"OpenAI 客户端已配置代理: {proxies}")
+            raw = cfg.HTTP
+            if isinstance(raw, list) and raw:
+                proxy_url = raw[0]
+            elif isinstance(raw, str) and raw:
+                proxy_url = raw
+            if proxy_url:
+                self.logger.info(f"OpenAI 客户端已配置代理: {proxy_url}")
 
-        #    - trust_env=False: 强制客户端忽略 Clash 等设置的系统代理
-        http_client = httpx.Client(proxies=proxies, trust_env=False)
+        http_client = httpx.Client(trust_env=False, proxy=proxy_url)
 
         self.client = OpenAI(
             api_key=config["api_key"],
             base_url=config["base_url"],
-            http_client=http_client
+            http_client=http_client,
         )
 
     def invoke(self, question: QuestionModel) -> SearcherResp:
@@ -61,10 +63,11 @@ class OpenAISearcher(SearcherBase):
             ),
         )
         try:
-            response = self.client.chat.completions.create(
-                model=self.config["model"],
-                temperature=0.5,  # 答题场景适合把temperature调低
-                messages=[
+            # 构建调用参数
+            api_args = {
+                "model": self.config["model"],
+                "temperature": 0.2,  # 答题场景适合把temperature调低
+                "messages": [
                     {"role": "system", "content": self.config["system_prompt"]},
                     {
                         "role": "user",
@@ -94,9 +97,30 @@ class OpenAISearcher(SearcherBase):
                         ),
                     },
                 ],
-            )
+            }
 
-            response = response.choices[0].message.content
+            # 如果配置了 tools，则加入调用参数
+            if "tools" in self.config and self.config["tools"]:
+                api_args["tools"] = self.config["tools"]
+                if "tool_choice" in self.config and self.config["tool_choice"]:
+                    api_args["tool_choice"] = self.config["tool_choice"]
+
+            response = self.client.chat.completions.create(**api_args)
+
+            # 优先处理 tool_calls 返回（如果模型调用了 function）
+            choice = response.choices[0]
+            if choice.message.tool_calls:
+                tool_call = choice.message.tool_calls[0]
+                try:
+                    tool_args = json.loads(tool_call.function.arguments)
+                    # 尝试从 tool 参数中提取答案（常见字段名：answer / result / response）
+                    response = tool_args.get("answer") or tool_args.get("result") or tool_args.get("response") or ""
+                except (json.JSONDecodeError, KeyError) as e:
+                    self.logger.warning(f"解析 tool_calls 参数失败: {e}")
+                    response = choice.message.content or ""
+            else:
+                response = choice.message.content
+
             if response is None :
                 # 防止预处理时报错
                 response = ''

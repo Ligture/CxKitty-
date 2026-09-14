@@ -8,7 +8,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 from yarl import URL
 
-from logger import Logger, set_log_filename
+from logger import Logger
 
 from .classes import ClassContainer
 from .exception import APIError
@@ -164,7 +164,7 @@ class ChaoXingAPI:
             school=json_content["msg"]["schoolname"],
             stu_id=json_content["msg"].get("uname"),  # 容许不存在学号的情况
         )
-        set_log_filename(self.acc.phone)
+        self.logger.set_phone(self.acc.phone)
         self.logger.info(f"账号登录成功 {self.acc}")
         return True
 

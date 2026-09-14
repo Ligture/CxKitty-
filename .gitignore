@@ -130,6 +130,11 @@ dmypy.json
 
 #editor settings
 .vscode/
+.idea/
+
+# Frontend build artifacts
+web/dist/
+web/node_modules/
 
 session/*.json
 questions.*
