@@ -23,6 +23,7 @@ from cxapi.task_point import PointDocumentDto, PointVideoDto, PointWorkDto
 from logger import Logger
 from resolver import DocumetResolver, MediaPlayResolver, QuestionResolver
 from resolver.question import clear_searcher_cache
+import transcript
 
 from server.database import SessionManager, TaskOrchestrator
 from server.services.callback_factory import CallbackFactory
@@ -71,7 +72,11 @@ def run_task_worker(
     try:
         # 加载配置快照 + 清除搜索器缓存
         cfg_snapshot = ConfigService.get_snapshot()
+        # 把本次运行的 transcript 配置推给转录管道(与 config 模块全局变量解耦)
+        transcript.apply_settings_override(cfg_snapshot.get("transcript"), cfg_snapshot.get("video"))
         clear_searcher_cache()
+        # 视频转录管道启动探测(ffmpeg / 模型目录 / ASR 依赖)
+        transcript.log_startup_report()
 
         classes: ClassContainer = api.fetch_classes()
         factory.install_session_callbacks(api)
@@ -135,6 +140,13 @@ def run_task_worker(
                 if chap.is_finished(ci):
                     continue
 
+                # 预热本章节已缓存的视频文稿(已完成的视频任务点不会重新入队)
+                if transcript.is_enabled():
+                    try:
+                        transcript.prime_chapter(chap.chapters[ci].chapter_id)
+                    except Exception as err:  # noqa: BLE001
+                        logger.warning(f"[{session_id}] 章节文稿预热失败 -> {err}")
+
                 refresh_flag = True
                 task_points = chap[ci]
 
@@ -179,6 +191,8 @@ def run_task_worker(
                                 if not task_point.parse_attachment():
                                     continue
                                 task_point.fetch_all()
+                                # 设置当前章节文稿上下文(供 TranscriptAISearcher 取用)
+                                transcript.set_current_knowledge_id(task_point.knowledge_id)
                                 factory._emit("task:progress", {
                                     "event": "quiz_start",
                                     "course_name": course_name,
@@ -218,6 +232,12 @@ def run_task_worker(
                                 continue
                             if not task_point.fetch():
                                 continue
+                            # 视频下载与后台转录(与模拟播放并行, 失败不影响主流程)
+                            if transcript.is_enabled():
+                                try:
+                                    transcript.enqueue_video(task_point, task_point.session)
+                                except Exception as err:  # noqa: BLE001
+                                    logger.warning(f"[{session_id}] 视频转录入队失败 -> {err}")
                             factory._emit("task:progress", {
                                 "event": "video_start",
                                 "course_name": course_name,
@@ -342,6 +362,9 @@ def run_exam_worker(
 
     try:
         cfg_snapshot = ConfigService.get_snapshot()
+        transcript.apply_settings_override(cfg_snapshot.get("transcript"), cfg_snapshot.get("video"))
+        # 考试与章节无关, 清除章节文稿指针避免误用上一章节的文稿
+        transcript.set_current_knowledge_id(None)
         clear_searcher_cache()
 
         classes: ClassContainer = api.fetch_classes()

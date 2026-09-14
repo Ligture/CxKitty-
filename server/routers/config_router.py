@@ -13,7 +13,22 @@ def get_config():
     config = ConfigService.load()
     config.setdefault("searchers", [])
     config.setdefault("proxies", {"enable": False, "HTTP": "", "HTTPS": ""})
-    config.setdefault("video", {"enable": True, "wait": 15, "speed": 1.0, "report_rate": 58})
+    config.setdefault("video", {"enable": True, "wait": 15, "speed": 1.0, "report_rate": 58, "download": True})
+    config.setdefault(
+        "transcript",
+        {
+            "enable": False,
+            "model_root": "",
+            "device": "auto",
+            "language": "auto",
+            "use_itn": True,
+            "cache_path": "transcripts/",
+            "video_path": "videos/",
+            "audio_path": "audios/",
+            "keep_video": False,
+            "keep_audio": False,
+        },
+    )
     config.setdefault("work", {"enable": True, "export": True, "wait": 15, "fallback_fuzzer": False, "fallback_save": True})
     config.setdefault("document", {"enable": True, "wait": 15})
     config.setdefault("exam", {"fallback_fuzzer": False, "persubmit_delay": 15, "confirm_submit": True})
@@ -51,6 +66,20 @@ async def save_config_section(section: str, request: Request):
     except Exception:
         pass
     return {"ok": True, "message": f"配置节 '{section}' 保存成功"}
+
+
+@router.get("/transcript/status")
+def get_transcript_status():
+    """视频转录管道状态(ffmpeg / 模型 / 依赖 / worker 进度)"""
+    import transcript
+
+    return {
+        "ok": True,
+        "data": {
+            "worker": transcript.get_worker().status(),
+            "probe": transcript.startup_report(),
+        },
+    }
 
 
 @router.get("/searchers/templates")

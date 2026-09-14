@@ -246,6 +246,57 @@ Enncy 题库，使用前请注册并获取 Token 填写在配置文件中（第�
 
 Gemini Web,从Gemini网页版cookie中获取Secure_1PSID Secure_1PSIDTS
 
+### 视频转录配置（章节文稿辅助答题）
+
+刷课过程中把章节视频下载到本地，用 ffmpeg 提取音频、**本地 SenseVoiceSmall** 转录，按章节缓存文稿；答题时把该章节文稿连同题目一起交给 AI，与题库搜索器交叉验证，降低单模型搜索器的错误率。方案设计见 [docs/video-transcript-plan.md](docs/video-transcript-plan.md)
+
+整条管道是“尽力而为的增强”：任一步骤失败都会退化为原有行为（仅题库搜索器作答），不影响刷课主流程。
+
+**前置条件**
+
+- Python **3.11 / 3.12**（torch wheel 覆盖范围），ffmpeg 需在 `PATH` 中（或用 `pip install imageio-ffmpeg` 提供二进制）
+- 安装可选 ASR 依赖（torch + funasr 体积较大，默认不安装）：
+
+```powershell
+# CUDA 版本（默认），CPU 请加 -Device cpu
+powershell -ExecutionPolicy Bypass -File scripts/install-asr.ps1
+
+# 已有模型时只装依赖
+powershell -ExecutionPolicy Bypass -File scripts/install-asr.ps1 -SkipModelDownload
+```
+
+也可用 poetry：`poetry install --with asr`
+
+**配置项**（`config.yml`）
+
+- `video.download`：刷课时下载视频（转录前置，仅在 `transcript.enable` 开启时生效）
+- `transcript.enable`：总开关，默认 `false`
+- `transcript.model_root`：模型根目录，需含 `sensevoice-small/`（约 900MB）与 `fsmn-vad/`
+- `transcript.device`：`auto`（有 cuda 用 cuda）/ `cpu` / `cuda:0`
+- `transcript.language`：`auto` / `zh` / `en` / `yue` / `ja` / `ko`
+- `transcript.cache_path`：转录缓存目录，`{object_id}.json` 以视频唯一标识去重，重复刷课直接命中
+- `transcript.keep_video` / `keep_audio`：转录完成后是否保留 `videos/`、`audios/`（转录失败时会保留视频以便重试）
+
+**搜索器配置**（`searchers` 中新增一项，可与题库搜索器同时使用）
+
+```yaml
+- type: TranscriptAISearcher
+  base_url: "https://api.deepseek.com/v1"   # 任意 OpenAI 兼容 API
+  api_key: "sk-***"
+  model: "deepseek-chat"
+  wait_ready: 30          # 文稿未就绪时最多等待秒数，超时本轮弃权
+  max_context_chars: 24000 # 章节文稿最大字符数，超出保留首尾
+  system_prompt: ""        # 留空使用内置提示词（已声明文稿可能有 ASR 识别错误）
+  prompt: ""               # 可用 {type} {value} {options} {transcript}
+```
+
+**运行产物**
+
+- `transcripts/{object_id}.json`：`object_id / title / knowledge_id / duration / transcribed_at / language / text / segments`
+- `videos/`、`audios/`：临时文件，按上面的开关清理（已在 `.gitignore` 中忽略）
+- `logs/transcript.log`：后台转录进度（worker 线程只写日志，不触碰 TUI）
+- WebUI 可在 `GET /api/transcript/status` 查看 ffmpeg / 模型 / 依赖与队列状态
+
 ## 📖Usage & Demo
 
 **注：本项目并非小白向“开箱即用”类型，需要一定的计算机专业技术能力；如需使用自动答题功能，请确保您拥有准确无误的题库资源**

@@ -30,6 +30,8 @@ video:
   speed: 1.0
   # 视频播放汇报率 (没事别改)
   report_rate: 58
+  # 刷课时下载视频(视频转录的前置条件, 仅在 transcript.enable 开启时生效)
+  download: true
 
 # 作业 (章节测验)
 work:
@@ -61,6 +63,32 @@ exam:
   confirm_submit: true
 # --------------------
 
+# 视频转录管道 (下载视频 -> ffmpeg 提取音频 -> 本地 SenseVoiceSmall 转录 -> 章节文稿供 AI 作答)
+# 设计说明见 docs/video-transcript-plan.md
+# 依赖安装: 执行 scripts/install-asr.ps1 (需 Python 3.11/3.12, torch + funasr 体积较大)
+transcript:
+  # 使能 (关闭时完全不影响原有刷课流程)
+  enable: false
+  # 模型根目录, 需包含 sensevoice-small/ 与 fsmn-vad/ 两个子目录
+  model_root: "D:/Project/search_via_bilibili/models"
+  # 推理设备 auto: 有 cuda 用 cuda, 否则 cpu
+  device: "auto"
+  # SenseVoice 识别语言 auto/zh/en/yue/ja/ko
+  language: "auto"
+  # 是否启用逆文本正则化(数字、标点)
+  use_itn: true
+  # 转录缓存目录 (object_id.json)
+  cache_path: "transcripts/"
+  # 视频 / 音频临时目录 (转录完成后按下面开关清理)
+  video_path: "videos/"
+  audio_path: "audios/"
+  # 转录完成后是否保留视频 (false 时删除, 转录失败会保留以便重试)
+  keep_video: false
+  # 转录完成后是否保留音频
+  keep_audio: false
+
+# --------------------
+
 #选择是否启用代理ip
 proxies: 
   #使能
@@ -73,8 +101,19 @@ proxies:
 # --------------------
 
 # 搜索器选择 (可同时使用多个搜索器, 以 yaml 语法中 list 格式添加, `type`字段决定搜索器类型)
-# 可用的搜索器有: restApiSearcher jsonFileSearcher sqliteSearcher enncySearcher cxSearcher LemonSearcher OpenAISearcher
+# 可用的搜索器有: restApiSearcher jsonFileSearcher sqliteSearcher enncySearcher cxSearcher LemonSearcher OpenAISearcher TranscriptAISearcher
 searchers:
+  # 章节视频文稿 + AI 作答 (需开启 transcript.enable, 与题库搜索器可同时使用)
+  # 文稿未就绪时会自动弃权, 不影响其他搜索器
+  # - type: TranscriptAISearcher
+  #   base_url: "https://api.openai.com/v1"  # OpenAI 兼容 API URL
+  #   api_key: "*"
+  #   model: "gpt-4o-mini"
+  #   wait_ready: 30          # 答题时文稿未就绪最多等待秒数, 超时本轮弃权
+  #   max_context_chars: 24000  # 章节文稿最大字符数, 超出则保留首尾
+  #   system_prompt: "你是一位专业的学习通题目答题助手..."  # 可留空使用内置提示词
+  #   prompt: "请根据下面的课程视频文稿回答这个{type}：\n\n【课程视频文稿】\n{transcript}\n\n【题目】\n{value}\n\n{options}"
+
   # 本地 JSON 数据库搜索器 (key为题, value为答案)
   # - type: jsonFileSearcher
   #   file_path: "questions.json"  # 数据库文件路径

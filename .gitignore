@@ -141,3 +141,8 @@ questions.*
 export/*
 faces/*
 config.yml
+
+# 视频转录管道产物
+transcripts/
+videos/
+audios/

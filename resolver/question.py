@@ -40,6 +40,7 @@ from .searcher.restapi import (
     LemonSearcher,
 )
 from .searcher.sqlite import SqliteSearcher
+from .searcher.transcript import TranscriptAISearcher
 
 # 所有的搜索器类
 SEARCHERS = {
@@ -55,6 +56,7 @@ SEARCHERS = {
     "LemonSearcher": LemonSearcher,
     "OpenAISearcher": OpenAISearcher,
     "GeminiWebSearcher": GeminiWebSearcher,
+    "TranscriptAISearcher": TranscriptAISearcher,
 }
 
 
@@ -70,6 +72,8 @@ def load_searcher() -> MultiSearcherWraper:
         raise AttributeError("请先配置题库后端再运行，如不需要使用答题功能请修改config.yml进行关闭。")
     # 按需实例化并添加搜索器
     for searcher_conf in config.SEARCHERS:
+        # 复制一份再改, 避免 `del type` 污染 config.SEARCHERS 导致二次加载 KeyError
+        searcher_conf = dict(searcher_conf)
         typename = searcher_conf["type"]
         typename = typename[0].upper() + typename[1:]
         if typename not in SEARCHERS:

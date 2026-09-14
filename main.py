@@ -38,6 +38,7 @@ from cxapi import (
 from cxapi.exception import ChapterNotOpened, TaskPointError
 from logger import Logger
 from resolver import DocumetResolver, MediaPlayResolver, QuestionResolver
+import transcript
 from utils import (
     SessionModule,
     __version__,
@@ -177,6 +178,12 @@ def fuck_task_worker(chap: ChapterContainer):
                 )
                 time.sleep(0.1)  # 解决强迫症, 故意添加延时, 为展示滚屏效果
                 continue
+            # 预热本章节已缓存的视频文稿(已完成的视频任务点不会重新入队)
+            if config.TRANSCRIPT_EN:
+                try:
+                    transcript.prime_chapter(chap.chapters[index].chapter_id)
+                except Exception as e:
+                    logger.warning(f"章节文稿预热失败 -> {e.__class__.__name__} {e.__str__()}")
             refresh_flag = True
             # 获取当前章节的所有任务点, 并遍历
             for task_point in chap[index]:
@@ -221,6 +228,8 @@ def fuck_task_worker(chap: ChapterContainer):
                             if not task_point.parse_attachment():
                                 continue
                             task_point.fetch_all()
+                            # 设置当前章节文稿上下文(供 TranscriptAISearcher 取用)
+                            transcript.set_current_knowledge_id(task_point.knowledge_id)
                             # 实例化解决器
                             resolver = QuestionResolver(
                                 exam_dto=task_point,
@@ -241,6 +250,14 @@ def fuck_task_worker(chap: ChapterContainer):
                         # 拉取取任务点数据
                         if not task_point.fetch():
                             continue
+                        # 视频下载与后台转录(与模拟播放并行, 失败不影响主流程)
+                        if config.TRANSCRIPT_EN:
+                            try:
+                                transcript.enqueue_video(task_point, task_point.session)
+                            except Exception as e:
+                                logger.warning(
+                                    f"视频转录入队失败 -> {e.__class__.__name__} {e.__str__()}"
+                                )
                         # 实例化解决器
                         resolver = MediaPlayResolver(
                             media_dto=task_point,
@@ -291,6 +308,8 @@ def fuck_exam_worker(exam: ExamDto, export=False):
         exam: 考试接口对象
         export: 是否开启导出模式, 默认关闭
     """
+    # 考试与章节无关, 清除章节文稿指针避免误用上一章节的文稿
+    transcript.set_current_knowledge_id(None)
     layout.split_row(lay_left, lay_right)
     with Live(layout, console=console) as live:
         # 拉取元数据
@@ -620,6 +639,8 @@ if __name__ == "__main__":
 
     logger.info("\n-----*任务开始执行*-----")
     logger.info(f"Ver. {__version__}")
+    # 视频转录管道启动探测(ffmpeg / 模型目录 / ASR 依赖)
+    transcript.log_startup_report()
     _accinfo(console, api)
     try:
         # 拉取预先上传的人脸图片

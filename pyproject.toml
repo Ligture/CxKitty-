@@ -42,6 +42,19 @@ pydantic-settings = "^2.0"
 aiofiles = "^24.0.0"
 
 
+# 视频转录管道(transcript/)的可选 ASR 依赖组: poetry install --with asr
+# 需要 Python 3.11 / 3.12(torch wheel 覆盖范围), 未安装时不影响原有刷课功能。
+# CUDA 版本建议改用 scripts/install-asr.ps1 安装(走 pytorch 官方索引)。
+[tool.poetry.group.asr]
+optional = true
+
+[tool.poetry.group.asr.dependencies]
+funasr = "1.4.2"
+modelscope = ">=1.20,<2"
+torch = ">=2.2.0"
+torchaudio = ">=2.2.0"
+
+
 [tool.poetry.group.dev.dependencies]
 black = "^22.12.0"
 isort = "^5.12.0"

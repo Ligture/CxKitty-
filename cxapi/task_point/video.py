@@ -26,6 +26,7 @@ class PointVideoDto(TaskPointBase):
     otherInfo: str
     title: str  # 视频标题
     rt: float
+    http: str  # 视频 mp4 直链(hls-only 时为空串, 转录管道会跳过)
 
     def __init__(self, object_id: str, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -78,6 +79,10 @@ class PointVideoDto(TaskPointBase):
         self.dtoken = json_content["dtoken"]
         self.duration = json_content["duration"]
         self.title = json_content["filename"]
+        # 保留 mp4 直链供后台转录管道下载; hls-only 视频为空串
+        self.http = str(json_content.get("http") or "")
+        if not self.http:
+            self.logger.warning("任务点视频无 http 直链(可能为 hls/m3u8), 视频转录将跳过")
         self.logger.debug(f"视频 schema: {json_content}")
         if json_content.get("status") == "success":
             self.logger.info(f"拉取成功 {self}")

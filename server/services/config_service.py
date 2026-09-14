@@ -52,6 +52,23 @@ SEARCHER_TEMPLATES = {
             {"key": "note", "label": "备注", "type": "text", "default": "", "placeholder": "自定义备注"},
         ],
     },
+    "TranscriptAISearcher": {
+        "label": "章节视频文稿 + AI 作答",
+        "icon": "film",
+        "color": "#6366f1",
+        "desc": "把章节视频的本地转录文稿作为上下文交给 AI 作答(需先在配置中开启 transcript.enable 并安装 ASR 依赖)",
+        "fields": [
+            {"key": "type", "label": "类型", "type": "hidden", "default": "TranscriptAISearcher"},
+            {"key": "base_url", "label": "API 地址 (base_url)", "type": "url", "default": "https://api.openai.com/v1", "placeholder": "https://api.openai.com/v1", "required": True},
+            {"key": "api_key", "label": "API 密钥 (api_key)", "type": "password", "default": "", "placeholder": "sk-...", "required": True},
+            {"key": "model", "label": "模型名称 (model)", "type": "text", "default": "gpt-4o-mini", "placeholder": "gpt-4o / deepseek-chat", "required": True},
+            {"key": "wait_ready", "label": "文稿等待秒数 (wait_ready)", "type": "number", "default": 30, "help": "答题时章节文稿未就绪最多等待的秒数，超时本轮弃权，不影响其他搜索器"},
+            {"key": "max_context_chars", "label": "文稿最大字符数 (max_context_chars)", "type": "number", "default": 24000, "help": "超出后保留首尾两段，避免超出模型上下文"},
+            {"key": "system_prompt", "label": "系统提示词 (system_prompt)", "type": "textarea", "default": "", "rows": 8, "placeholder": "留空使用内置提示词(已声明文稿可能有 ASR 识别错误)", "help": "可选。留空时使用内置提示词"},
+            {"key": "prompt", "label": "提问模板 (prompt)", "type": "textarea", "default": "", "rows": 6, "placeholder": "留空使用内置模板", "help": "可用变量: {type}题目类型, {value}题干, {options}选项文本, {transcript}章节文稿"},
+            {"key": "note", "label": "备注", "type": "text", "default": "", "placeholder": "自定义备注，如用途说明"},
+        ],
+    },
     "restApiSearcher": {
         "label": "REST API 搜题",
         "icon": "server",

@@ -41,10 +41,17 @@ VIDEO: dict = conf.get("video", {})
 DOCUMENT: dict = conf.get("document", {})
 EXAM: dict = conf.get("exam", {})
 
+# 视频转录管道配置 (下载 -> ffmpeg 提取音频 -> SenseVoiceSmall -> 章节文稿)
+TRANSCRIPT: dict = conf.get("transcript", {})
+
 # 任务使能配置
 WORK_EN: bool = WORK.get("enable", True)
 VIDEO_EN: bool = VIDEO.get("enable", True)
 DOCUMENT_EN: bool = DOCUMENT.get("enable", True)
+
+# 视频下载 / 转录使能
+VIDEO_DOWNLOAD: bool = VIDEO.get("download", True)
+TRANSCRIPT_EN: bool = TRANSCRIPT.get("enable", False)
 
 # 任务延时配置
 WORK_WAIT: int = WORK.get("wait", 15)
@@ -65,10 +72,13 @@ def reload_config():
         cfg.VIDEO = new_conf.get("video", {})
         cfg.DOCUMENT = new_conf.get("document", {})
         cfg.EXAM = new_conf.get("exam", {})
+        cfg.TRANSCRIPT = new_conf.get("transcript", {})
         cfg.SEARCHERS = new_conf.get("searchers", [])
         cfg.WORK_EN = cfg.WORK.get("enable", True)
         cfg.VIDEO_EN = cfg.VIDEO.get("enable", True)
         cfg.DOCUMENT_EN = cfg.DOCUMENT.get("enable", True)
+        cfg.VIDEO_DOWNLOAD = cfg.VIDEO.get("download", True)
+        cfg.TRANSCRIPT_EN = cfg.TRANSCRIPT.get("enable", False)
         cfg.WORK_WAIT = cfg.WORK.get("wait", 15)
         cfg.VIDEO_WAIT = cfg.VIDEO.get("wait", 15)
         cfg.DOCUMENT_WAIT = cfg.DOCUMENT.get("wait", 15)

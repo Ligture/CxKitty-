@@ -15,6 +15,22 @@ class VideoConfig(BaseModel):
     wait: int = 15
     speed: float = 1.0
     report_rate: int = 58
+    download: bool = True
+
+
+class TranscriptConfig(BaseModel):
+    """视频转录管道配置 (下载 -> ffmpeg 提取音频 -> SenseVoiceSmall -> 章节文稿)"""
+
+    enable: bool = False
+    model_root: str = ""
+    device: str = "auto"
+    language: str = "auto"
+    use_itn: bool = True
+    cache_path: str = "transcripts/"
+    video_path: str = "videos/"
+    audio_path: str = "audios/"
+    keep_video: bool = False
+    keep_audio: bool = False
 
 
 class WorkConfig(BaseModel):
@@ -67,6 +83,7 @@ class FullConfig(BaseModel):
     face_image_path: str = "faces"
     proxies: ProxyConfig = ProxyConfig()
     video: VideoConfig = VideoConfig()
+    transcript: TranscriptConfig = TranscriptConfig()
     work: WorkConfig = WorkConfig()
     document: DocumentConfig = DocumentConfig()
     exam: ExamConfig = ExamConfig()
