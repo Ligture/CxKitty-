@@ -5,6 +5,7 @@ import re
 import secrets
 import time
 from functools import lru_cache
+from pathlib import Path
 from typing import Callable, List, Optional
 
 from rich import errors
@@ -141,6 +142,31 @@ def _accepts_extras(cls: type) -> bool:
     )
 
 
+#: 提示词字段 -> 对应的"从文件读取"字段(prompt_file: "xxx.txt")
+PROMPT_FILE_KEYS = {
+    "prompt_file": "prompt",
+    "system_prompt_file": "system_prompt",
+}
+
+
+def _resolve_prompt_files(conf: dict) -> None:
+    """把 prompt_file / system_prompt_file 指向的文本读入 prompt / system_prompt
+
+    文件路径相对当前工作目录解析, 内容按原样读入(仅去掉结尾换行);
+    同时写了内联提示词与文件时以文件为准。
+    """
+    for file_key, target in PROMPT_FILE_KEYS.items():
+        raw_path = conf.pop(file_key, None)
+        if raw_path in (None, ""):
+            continue
+        path = Path(str(raw_path)).expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        if not path.is_file():
+            raise AttributeError(f"提示词文件不存在: {path} (来自 {file_key})")
+        conf[target] = path.read_text(encoding="utf8").rstrip("\r\n")
+
+
 def build_searcher(entry: dict):
     """按配置构建单个搜索器实例
 
@@ -158,9 +184,14 @@ def build_searcher(entry: dict):
     cls = _resolve_searcher_class(conf.pop("type", None))
     label = note or str(raw_type)
 
+    # 提示词支持两种写法: 内联 prompt / system_prompt, 或 prompt_file / system_prompt_file
+    _resolve_prompt_files(conf)
+
     # AI 搜索器(**config)继承 searchers.defaults 中的提示词等默认值
     if _accepts_extras(cls) and config.SEARCHER_DEFAULTS:
-        conf = {**config.SEARCHER_DEFAULTS, **conf}
+        defaults = dict(config.SEARCHER_DEFAULTS)
+        _resolve_prompt_files(defaults)
+        conf = {**defaults, **conf}
 
     allowed, required = _search_config_keys(cls)
     if unknown := sorted(set(conf) - allowed):

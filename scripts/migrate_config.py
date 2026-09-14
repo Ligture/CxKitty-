@@ -7,6 +7,7 @@
     python scripts/migrate_config.py --dry-run       # 只打印结果(敏感值打码)
     python scripts/migrate_config.py --show-secrets  # 配合 --dry-run 显示完整密钥
     python scripts/migrate_config.py -p other.yml    # 指定其它配置文件
+    python scripts/migrate_config.py --style block   # 输出缩进块式(默认花括号流式)
 
 说明:
 
@@ -62,25 +63,54 @@ def _use_block(text: str) -> bool:
 BlockDumper.add_representer(str, BlockDumper.represent_str)
 
 
-def dumps(conf: dict[str, Any]) -> str:
-    """序列化为 YAML; 块标量不合法时自动回退普通风格"""
-    text = yaml.dump(
-        conf,
-        Dumper=BlockDumper,
-        allow_unicode=True,
-        sort_keys=False,
-        default_flow_style=False,
-        width=100,
+class FlowDumper(yaml.SafeDumper):
+    """花括号写法下, 多行字符串用双引号 + \n 转义, 避免折行歧义"""
+
+    def represent_str(self, data: str):  # noqa: D102 - PyYAML 回调
+        style = '"' if "\n" in data else None
+        return self.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+FlowDumper.add_representer(str, FlowDumper.represent_str)
+
+
+def dumps(conf: dict[str, Any], flow: bool = True) -> str:
+    """序列化为 YAML
+
+    Args:
+        conf: 配置字典
+        flow: True 输出花括号流式写法(可读性好且支持注释), False 输出块式写法
+
+    Returns:
+        YAML 文本; 结果会做一次 round-trip 校验, 不合法时回退普通风格
+    """
+    dumpers = [FlowDumper, yaml.SafeDumper] if flow else [BlockDumper, yaml.SafeDumper]
+    for dumper in dumpers:
+        try:
+            text = yaml.dump(
+                conf,
+                Dumper=dumper,
+                allow_unicode=True,
+                sort_keys=False,
+                default_flow_style=flow,
+                width=100,
+            )
+        except yaml.YAMLError:
+            continue
+        if yaml.safe_load(text) == conf:
+            return text
+    raise RuntimeError("配置序列化失败, 请检查内容")
+
+
+def dump_header(conf: dict[str, Any], backup_name: str, timestamp: str, flow: bool) -> str:
+    """生成带说明注释的文件头(流式写法下注释写在文件顶部)"""
+    style = "花括号(YAML 流式)" if flow else "块式"
+    return (
+        f"# CxKitty 配置文件 ({style}写法, 格式版本 2)\n"
+        "# 字段说明: docs/configuration.md | 示例: config.yml.example\n"
+        f"# 由 scripts/migrate_config.py 生成于 {timestamp}, 原文件备份: {backup_name}\n"
+        "# 提示: 这是 YAML 而非严格 JSON, 允许 # 注释、尾逗号与省略键名引号\n\n"
     )
-    if yaml.safe_load(text) != conf:
-        text = yaml.dump(
-            conf,
-            allow_unicode=True,
-            sort_keys=False,
-            default_flow_style=False,
-            width=100,
-        )
-    return text
 
 
 def mask_secrets(value: Any, key: str = "") -> Any:
@@ -99,6 +129,12 @@ def main() -> int:
     parser.add_argument("-p", "--path", default="config.yml", help="配置文件路径(默认 config.yml)")
     parser.add_argument("--dry-run", action="store_true", help="只打印结果, 不写入文件")
     parser.add_argument("--show-secrets", action="store_true", help="预览时显示完整密钥")
+    parser.add_argument(
+        "--style",
+        choices=("flow", "block"),
+        default="flow",
+        help="输出风格: flow 花括号流式(默认), block 缩进块式",
+    )
     args = parser.parse_args()
 
     path = Path(args.path)
@@ -115,18 +151,15 @@ def main() -> int:
         return 0
 
     conf, problems = schema.normalize(raw)
-    body = dumps(conf)
+    flow = args.style == "flow"
+    body = dumps(conf, flow)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup = path.with_name(f"{path.name}.bak.{timestamp}")
-    header = (
-        "# CxKitty 配置文件 (格式版本 2)\n"
-        "# 字段说明: docs/configuration.md | 示例: config.yml.example\n"
-        f"# 由 scripts/migrate_config.py 生成于 {timestamp}, 原文件备份: {backup.name}\n\n"
-    )
+    header = dump_header(conf, backup.name, timestamp, flow)
 
     if args.dry_run:
         preview = conf if args.show_secrets else mask_secrets(copy.deepcopy(conf))
-        print(header + dumps(preview) + "\n# (--dry-run 预览结束, 未写入文件)")
+        print(header + dumps(preview, flow) + "\n# (--dry-run 预览结束, 未写入文件)")
     else:
         shutil.copy2(path, backup)
         path.write_text(header + body, encoding="utf8")

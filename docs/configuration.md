@@ -2,24 +2,34 @@
 
 配置文件为仓库根目录下的 `config.yml`（示例见 `config.yml.example`）。v2 采用**分段结构**：运行、路径、代理、任务、转录、搜索器各自成段，字段名统一小写，缺失字段自动使用默认值。
 
+## 写法：花括号流式（默认）
+
+示例与推荐写法是**花括号流式**——`{ key: value, ... }`、`[ ... ]` 加逗号，外观接近 JSON，但它仍然是 **YAML**：
+
+- ✅ 支持 `#` 注释（行尾、整行、集合内部都可以）
+- ✅ 允许尾逗号（`{ a: 1, }`）、省略键名引号（`type: openai`）
+- ✅ 可与缩进块式写法混用，两种写法解析结果完全一致
+- ❌ 不是严格 JSON：不能用 `//` 注释，也别交给只认 JSON 的工具
+
+唯一的取舍是：流式写法里不能用 `|` 多行块标量，多行文本要写成 `"第一行\n第二行"`；长提示词建议改用下面的 `prompt_file` / `system_prompt_file` 指向文本文件。
+
 > 旧版 v1（扁平结构，如 `session_path:`、`proxies:` 直接写在顶层）**仍可读取**：程序启动时会给出兼容警告，按提示执行 `python scripts/migrate_config.py` 即可迁移（原文件自动备份为 `config.yml.bak.<时间戳>`）。
 
 ## 结构总览
 
 ```yaml
-version: 2
-runtime:    { ... }    # 运行 / 界面
-paths:      { ... }    # 目录
-proxy:      { ... }    # 网络代理
-tasks:                 # 刷课任务
-  video:    { ... }
-  work:     { ... }
-  document: { ... }
-  exam:     { ... }
-transcript: { ... }    # 视频转录管道
-searchers:             # 题库 / AI 搜索器
-  defaults: { ... }    # AI 搜索器公共默认值
-  items:    [ ... ]    # 搜索器列表(自上而下依次调用)
+{
+  version: 2,
+  runtime:    { ... },     # 运行 / 界面
+  paths:      { ... },     # 目录
+  proxy:      { ... },     # 网络代理
+  tasks:      { video: { ... }, work: { ... }, document: { ... }, exam: { ... } },
+  transcript: { ... },     # 视频转录管道
+  searchers: {             # 题库 / AI 搜索器
+    defaults: { prompt_file: "prompts/answer.txt", system_prompt_file: "prompts/system.txt" },
+    items:    [ { type: json, file_path: "questions.json" }, ... ],   # 自上而下依次调用
+  },
+}
 ```
 
 启动时程序会校验配置：**未知字段**（多半是拼写错误）、**类型错误**都会以警告形式提示，并回退到默认值，不会静默生效。
@@ -101,23 +111,15 @@ searchers:             # 题库 / AI 搜索器
 ## searchers — 题库与 AI 搜索器
 
 ```yaml
-searchers:
-  defaults:            # 公共默认值(只对 AI 搜索器生效)
-    prompt: |
-      请回答下这个{type}：
-      {value}
-      {options}
-    system_prompt: |
-      你是一位专业的学习通题目答题助手。……
-  items:               # 搜索器列表, 自上而下依次调用
-    - type: json
-      file_path: "questions.json"
-    - type: openai
-      enabled: true
-      note: "deepseek"
-      api_key: "sk-***"
-      base_url: "https://api.deepseek.com/v1"
-      model: "deepseek-chat"
+searchers: {
+  # 公共默认值(只对 AI 搜索器生效): 长提示词用文件, 也可内联 "……\n……"
+  defaults: { prompt_file: "prompts/answer.txt", system_prompt_file: "prompts/system.txt" },
+  items: [                               # 搜索器列表, 自上而下依次调用
+    { type: json, file_path: "questions.json" },
+    { type: openai, enabled: true, note: "deepseek",
+      api_key: "sk-***", base_url: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  ],
+}
 ```
 
 ### 调用顺序与元字段
@@ -161,6 +163,7 @@ searchers:
 - `token`：第三方题库 Token
 - `api_key` / `base_url` / `model`：OpenAI 兼容接口参数（`base_url` 留空默认 `https://api.openai.com/v1`，`model` 留空默认 `gpt-4o-mini`）
 - `system_prompt` / `prompt`：提示词；`prompt` 支持 `{type}` `{value}` `{options}`（`transcript` 额外支持 `{transcript}`），留空使用内置默认
+- `prompt_file` / `system_prompt_file`：把提示词放在 UTF-8 文本文件里（路径相对当前工作目录），与内联写法二选一，同时存在时以文件为准；写在 `searchers.defaults` 中可供多个 AI 搜索器共享（仓库自带 `prompts/answer.txt`、`prompts/system.txt` 作模板）
 - `tools` / `tool_choice`：OpenAI Tools / 函数调用配置（可选）
 - `Secure_1PSID` / `Secure_1PSIDTS`：Gemini 网页版 cookie
 - `proxy_enable` / `proxy`：Gemini 单独代理，留空回退 `proxy` 段
@@ -169,20 +172,14 @@ searchers:
 ### 示例组合
 
 ```yaml
-searchers:
-  items:
-    # 先查本地题库
-    - type: json
-      file_path: "questions.json"
-    # 再查免费题库
-    - type: enncy
-      token: "***"
-    # 最后交给 AI 兜底(带备注便于在 TUI 中区分)
-    - type: openai
-      note: "deepseek"
-      api_key: "sk-***"
-      base_url: "https://api.deepseek.com/v1"
-      model: "deepseek-chat"
+searchers: {
+  items: [
+    { type: json, file_path: "questions.json" },      # 先查本地题库
+    { type: enncy, token: "***" },                    # 再查免费题库
+    { type: openai, note: "deepseek",                 # 最后交给 AI 兜底
+      api_key: "sk-***", base_url: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  ],
+}
 ```
 
 ---
@@ -203,4 +200,6 @@ searchers:
 - **只想导出题目、不自动作答？** 设 `tasks.work.enable: true`、`tasks.work.export: false`。
 - **不用自动答题功能？** 可以不在 `searchers.items` 中配置任何搜索器；只有执行到测验环节时才会要求搜索器。
 - **多个 AI 搜索器都要写提示词吗？** 不需要，写在 `searchers.defaults` 中共享，条目内按需覆盖。
-- **想临时停用某个搜索器？** 把该条目改为 `enabled: false`（保留配置，不影响其他条目）。
+- **想临时停用某个搜索器？** 把该条目改为 `enabled: false`（保留配置，不影响其他条目）
+- **提示词很长，配置里全是 `\n` 转义怎么办？** 把提示词写进文本文件，用 `prompt_file` / `system_prompt_file` 引用，例如 `{ prompt_file: "prompts/answer.txt", system_prompt_file: "prompts/system.txt" }`
+- **必须用花括号写法吗？** 不必，缩进块式（`key:` + 换行）同样支持，甚至可以混用；迁移脚本可用 `--style block` 输出块式。

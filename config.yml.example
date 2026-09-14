@@ -1,130 +1,99 @@
 # ============================================================
-#  CxKitty 配置文件 (格式版本 2)
-#  字段说明 : docs/configuration.md
-#  迁移旧版 : python scripts/migrate_config.py  (v1 扁平格式仍可读取)
+#  CxKitty 配置 (格式 v2) — 花括号写法(YAML 流式语法, 支持 # 注释)
+#  字段说明: docs/configuration.md     旧版迁移: python scripts/migrate_config.py
+#  注意: 这是 YAML 而非严格 JSON, 因此允许注释、尾逗号、省略键名引号
 # ============================================================
 
-version: 2
+{
+  version: 2,
 
-# ---------------- 运行 / 界面 ----------------
-runtime:
-  multi_session: true          # 多会话模式: 启动时选择会话存档
-  mask_acc: true               # 手机号与姓名打码
-  tui_max_height: 25           # TUI 高度, null 表示自适应
-  fetch_uploaded_face: true    # 登录后拉取云端已上传的人脸图片
+  # ---------------- 运行 / 界面 ----------------
+  runtime: {
+    multi_session: true,          # 多会话模式: 启动时选择会话存档
+    mask_acc: true,               # 手机号与姓名打码
+    tui_max_height: 25,           # TUI 高度, null 表示自适应
+    fetch_uploaded_face: true,    # 登录后拉取云端已上传的人脸图片
+  },
 
-# ---------------- 目录 ----------------
-paths:
-  session: "session/"          # 会话存档
-  logs: "logs/"                # 日志
-  export: "export/"            # 试题 / 错题导出
-  faces: "faces/"              # 人脸图片
+  # ---------------- 目录 ----------------
+  paths: {
+    session: "session/",          # 会话存档
+    logs: "logs/",                # 日志
+    export: "export/",            # 试题 / 错题导出
+    faces: "faces/",              # 人脸图片
+  },
 
-# ---------------- 网络代理 ----------------
-proxy:
-  enable: false                # 同时作用于学习通请求与 AI 搜索器
-  http: "http://127.0.0.1:7897"
-  https: "http://127.0.0.1:7897"
+  # ---------------- 网络代理(同时作用于学习通请求与 AI 搜索器) ----------------
+  proxy: { enable: false, http: "http://127.0.0.1:7897", https: "http://127.0.0.1:7897" },
 
-# ---------------- 刷课任务 ----------------
-tasks:
+  # ---------------- 刷课任务 ----------------
+  tasks: {
+    # 视频: wait 完成等待秒数 / speed 倍速 / report_rate 上报频率 / download 刷课时下载视频(转录前置)
+    video:    { enable: true, wait: 15, speed: 1.0, report_rate: 58, download: true },
+    # 作业(章节测验): enable: true 且 export: false 时只导出不作答
+    work:     { enable: true, export: true, wait: 15, fallback_fuzzer: false, fallback_save: true },
+    # 文档任务点
+    document: { enable: true, wait: 15 },
+    # 考试: persubmit_delay 交卷前延迟秒数; confirm_submit: true 手动确认 / false 自动交卷
+    exam:     { fallback_fuzzer: false, persubmit_delay: 15, confirm_submit: true },
+  },
 
-  video:
-    enable: true
-    wait: 15                   # 单个任务点完成后的等待秒数
-    speed: 1.0                 # 倍速
-    report_rate: 58            # 播放上报频率(没事别改)
-    download: true             # 刷课时下载视频(视频转录的前置条件)
+  # ---------------- 视频转录管道 ----------------
+  # 下载视频 -> ffmpeg 提取音频 -> 本地 SenseVoiceSmall 转录 -> 章节文稿供 AI 作答
+  # 依赖安装: scripts/install-asr.ps1 (需 Python 3.11/3.12) | 设计说明: docs/video-transcript-plan.md
+  transcript: {
+    enable: false,                 # 总开关, 关闭时完全不影响原有刷课流程
+    model_root: "",                # 模型根目录, 需含 sensevoice-small/ 与 fsmn-vad/
+    device: "auto",                # auto / cuda / cpu
+    language: "auto",              # auto / zh / en / yue / ja / ko
+    use_itn: true,                 # 逆文本正则化(数字、标点)
+    cache_path: "transcripts/",    # 转录缓存 (object_id.json)
+    video_path: "videos/",         # 视频临时目录
+    audio_path: "audios/",         # 音频临时目录
+    keep_video: false,             # 转录完成后保留视频
+    keep_audio: false,             # 转录完成后保留音频
+  },
 
-  work:                        # 作业 / 章节测验
-    enable: true
-    export: true               # 导出试题; enable: true 且 export: false 时只导出不作答
-    wait: 15
-    fallback_fuzzer: false     # 未匹配到答案时随机选择
-    fallback_save: true        # 作答失败仍保存
+  # ---------------- 搜索器 ----------------
+  # 按 items 顺序依次调用, 先返回有效答案的搜索器优先; 完整参数表: docs/configuration.md
+  # type 可用短别名: openai gemini transcript json sqlite rest jsonApi cx enncy lemon tikuhai lyck6 muke
+  searchers: {
 
-  document:
-    enable: true
-    wait: 15
+    # AI 搜索器公共默认值: 条目内写同名字段即可覆盖
+    # 长提示词推荐用 prompt_file / system_prompt_file 指向文本文件(此处文件随仓库提供)
+    # 也可内联: prompt: "请回答下这个{type}：\n{value}\n{options}"
+    defaults: {
+      prompt_file: "prompts/answer.txt",
+      system_prompt_file: "prompts/system.txt",
+    },
 
-  exam:
-    fallback_fuzzer: false
-    persubmit_delay: 15        # 交卷前延迟秒数
-    confirm_submit: true       # true 手动确认交卷, false 自动交卷
+    items: [
 
-# ---------------- 视频转录管道 ----------------
-# 下载视频 -> ffmpeg 提取音频 -> 本地 SenseVoiceSmall 转录 -> 章节文稿供 AI 作答
-# 依赖安装: scripts/install-asr.ps1 (需 Python 3.11/3.12); 设计说明: docs/video-transcript-plan.md
-transcript:
-  enable: false                # 关闭时完全不影响原有刷课流程
-  model_root: ""               # 模型根目录, 需包含 sensevoice-small/ 与 fsmn-vad/
-  device: "auto"               # auto / cuda / cpu
-  language: "auto"             # auto / zh / en / yue / ja / ko
-  use_itn: true                # 逆文本正则化(数字、标点)
-  cache_path: "transcripts/"   # 转录缓存 (object_id.json)
-  video_path: "videos/"        # 视频临时目录
-  audio_path: "audios/"        # 音频临时目录
-  keep_video: false            # 转录完成后保留视频
-  keep_audio: false            # 转录完成后保留音频
+      # 本地 JSON 题库(题目为 key, 答案为 value), 离线可用, 建议放最前
+      # { type: json, file_path: "questions.json" },
 
-# ---------------- 搜索器 ----------------
-# 自上而下依次调用, 先返回有效答案的搜索器优先; 典型顺序:
-#   本地题库(json/sqlite) -> 免费题库接口(cx/enncy/...) -> AI 搜索器(openai/gemini/transcript)
-# 各搜索器参数表: docs/configuration.md
-searchers:
+      # 本地 SQLite 题库
+      # { type: sqlite, file_path: "questions.db", table: "question", req_field: "question", rsp_field: "answer" },
 
-  # 公共默认值: 仅对 AI 搜索器生效, 条目内写同名项即可覆盖(留空则继承)
-  defaults:
-    prompt: |
-      请回答下这个{type}：
-      {value}
-      {options}
-    system_prompt: |
-      你是一位专业的学习通题目答题助手。
+      # 免费题库接口(需 token): enncy / cx / lemon / tikuhai / lyck6 / muke
+      # { type: enncy, token: "***" },
 
-      请严格遵循以下规则作答：
-       - 单选题：只输出选项字母
-       - 判断题：只输出「对」或「错」
-       - 多选题：只输出选项字母，用英文逗号分隔(至少两个)
+      # AI 答题(OpenAI 兼容 API): prompt / system_prompt 留空即使用上面的 defaults
+      {
+        type: openai,
+        enabled: false,                                 # 填好 api_key 后改为 true
+        note: "deepseek",                               # 仅用于日志 / TUI 展示
+        api_key: "sk-***",
+        base_url: "https://api.deepseek.com/v1",
+        model: "deepseek-chat",
+      },
 
-      请确保每个选择都严格符合题干限定的主题范围，不扩大不缩小。只回复答案，不要输出除答案以外任何内容。
+      # Gemini Web(网页版 cookie, 无需 API Key)
+      # { type: gemini, Secure_1PSID: "***", Secure_1PSIDTS: "***", model: "G-3.0-FLASH" },
 
-  # 搜索器列表
-  # type 必填(大小写不敏感, 可用类名或短别名), enabled 缺省为 true, note 仅用于日志/TUI 显示
-  # 可用 type: openai gemini transcript json jsonFile sqlite rest jsonApi cx enncy lemon tikuhai lyck6 muke
-  items:
-
-    # 本地 JSON 题库(离线, 题目为 key, 答案为 value)
-    # - type: json
-    #   file_path: "questions.json"
-
-    # 本地 SQLite 题库
-    # - type: sqlite
-    #   file_path: "questions.db"
-    #   table: "question"
-    #   req_field: "question"
-    #   rsp_field: "answer"
-
-    # 免费题库接口(需 token)
-    # - type: enncy
-    #   token: "***"
-
-    # AI 答题(OpenAI 兼容 API): 未填写的 prompt/system_prompt 继承上面的 defaults
-    - type: openai
-      enabled: false
-      note: "deepseek"
-      api_key: "sk-***"
-      base_url: "https://api.deepseek.com/v1"
-      model: "deepseek-chat"
-
-    # Gemini Web(网页版 cookie, 无需 API Key)
-    # - type: gemini
-    #   Secure_1PSID: "***"
-    #   Secure_1PSIDTS: "***"
-    #   model: "G-3.0-FLASH"
-
-    # 章节文稿作答(需 transcript.enable 与 tasks.video.download)
-    # - type: transcript
-    #   api_key: "sk-***"
-    #   base_url: "https://api.deepseek.com/v1"
-    #   model: "deepseek-chat"
+      # 章节文稿作答(需 transcript.enable 与 tasks.video.download 开启)
+      # { type: transcript, api_key: "sk-***", base_url: "https://api.deepseek.com/v1", model: "deepseek-chat",
+      #   wait_ready: 30, max_context_chars: 24000 },
+    ],
+  },
+}

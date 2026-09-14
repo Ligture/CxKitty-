@@ -1,0 +1,3 @@
+请回答下这个{type}：
+{value}
+{options}

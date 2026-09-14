@@ -170,6 +170,8 @@ docker run -it \
 
 配置文件为 `config.yml`（Yaml 语法，示例见 [config.yml.example](config.yml.example)），采用**分段格式**：`runtime`（运行 / 界面）、`paths`（目录）、`proxy`（网络代理）、`tasks`（刷课任务）、`transcript`（视频转录）、`searchers`（题库与 AI 搜索器）各自成段。
 
+示例采用**花括号流式写法**（`{ key: value, ... }`，外观接近 JSON），但它仍是 YAML，因此支持 `#` 注释、尾逗号与省略键名引号；长提示词可用 `prompt_file` / `system_prompt_file` 指向文本文件（仓库自带 `prompts/answer.txt`、`prompts/system.txt` 作模板）。
+
 字段含义、搜索器参数表与完整示例见 [docs/configuration.md](docs/configuration.md)
 
 > 旧版扁平格式（`session_path:`、`proxies:` 等直接写在顶层）仍可读取，启动时会提示兼容；执行 `python scripts/migrate_config.py` 可迁移到新格式（原文件自动备份）
@@ -282,14 +284,12 @@ powershell -ExecutionPolicy Bypass -File scripts/install-asr.ps1 -SkipModelDownl
 **搜索器配置**（在 `searchers.items` 中新增一项，可与题库搜索器同时使用；参数表见 [docs/configuration.md](docs/configuration.md#搜索器)）
 
 ```yaml
-- type: transcript
-  base_url: "https://api.deepseek.com/v1"   # 任意 OpenAI 兼容 API
-  api_key: "sk-***"
-  model: "deepseek-chat"
-  wait_ready: 30          # 文稿未就绪时最多等待秒数，超时本轮弃权
-  max_context_chars: 24000 # 章节文稿最大字符数，超出保留首尾
-  system_prompt: ""        # 留空使用内置提示词（已声明文稿可能有 ASR 识别错误）
-  prompt: ""               # 可用 {type} {value} {options} {transcript}
+{ type: transcript, note: "章节文稿",            # note 仅用于日志 / TUI 展示
+  api_key: "sk-***", base_url: "https://api.deepseek.com/v1", model: "deepseek-chat",
+  wait_ready: 30,           # 文稿未就绪时最多等待秒数，超时本轮弃权
+  max_context_chars: 24000, # 章节文稿最大字符数，超出保留首尾
+  system_prompt: "",        # 留空使用内置提示词（已声明文稿可能有 ASR 识别错误）
+  prompt: "" }              # 可用 {type} {value} {options} {transcript}
 ```
 
 **运行产物**
