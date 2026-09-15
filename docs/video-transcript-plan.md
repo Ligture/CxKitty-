@@ -148,6 +148,29 @@ searchers:
 
 模型加载后常驻属于正常现象:进程内单例复用,任务结束后不会卸载,想回收只能退出程序。
 
+### 进程外转录服务(多账号复用一份模型)
+
+`transcript.mode: service` 时, 模型不再进主进程, 而是由 `python -m transcript.server`(入口
+`transcript/server.py`)单独持有; 多个 `main.py`(多账号)通过本机 HTTP 共享它:
+
+```
+main.py #1  ─┐  下载视频 / ffmpeg 提取 wav / 写本地缓存        ┌─ 单模型 SenseVoice + FSMN-VAD
+main.py #2  ─┼─ POST /transcribe {"audio_path": "...", ...} ──►│  串行排队执行(GPU 上只跑一路)
+main.py #3  ─┘   GET /health  查看设备 / 队列 / 累计次数        └─ 可选服务端缓存(跨账号去重)
+```
+
+| 接口 | 说明 |
+|---|---|
+| `GET /health` | 设备、模型是否已加载、队列深度、累计转录 / 缓存 / 失败次数 |
+| `POST /transcribe` | 请求体含绝对路径 `audio_path` 与 `object_id` / `title` / `knowledge_id` / `duration` / `language` / `use_itn`, 返回 `text` / `language` / `segments` / `device` / `cached` / `elapsed` |
+| `POST /unload` | 释放模型(内存 + 显存), 下次请求自动重新加载 |
+
+* 客户端(worker)通过 `RemoteSenseVoiceTranscriber` 调用, 与本地实现同一套接口(`load()` / `device_in_use` / `transcribe()`), 因此下载 / 提取 / 缓存逻辑完全不变
+* 服务端单推理线程 + 请求排队, 多账号并发提交不会争抢显存; 失败按"尽力而为"降级为不转录
+* 服务端可选 `--cache-path`(默认取 `transcript.cache_path`)、`--idle-unload 秒`、`--token` 口令
+* 客户端与服务端必须同机(按绝对路径读取音频), 跨机部署需自行共享路径并设置口令
+* 实测(3 个账号): 各自加载模型约 5.3GB 常驻 / 10.7GB 提交 / 3.3GB 显存; 改成 1 个服务 + 3 个客户端后约 2.1GB 常驻 / 4.2GB 提交 / 1.1GB 显存
+
 ## 8. 风险与对策
 
 | 风险 | 对策 |

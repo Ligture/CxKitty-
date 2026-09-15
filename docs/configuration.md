@@ -124,13 +124,44 @@ poetry run python main.py
 | 字段 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | `enable` | bool | `false` | 是否启用转录管道 |
-| `model_root` | str | `""` | 模型根目录，需包含 `sensevoice-small/` 与 `fsmn-vad/` |
+| `mode` | str | `local` | `local`（每个进程各自加载模型）/ `service`（交给独立转录服务，多账号复用同一份模型） |
+| `service_url` | str | `""` | `service` 模式下的服务地址，如 `http://127.0.0.1:8765`（留空用默认地址） |
+| `service_token` | str | `""` | 与服务端 `--token` 一致的共享口令 |
+| `service_timeout` | int | `900` | 单次转录等待上限（秒） |
+| `service_fallback_local` | bool | `false` | 服务不可用时是否回退到进程内模型（回退会重新占用内存 / 显存） |
+| `model_root` | str | `""` | 模型根目录，需包含 `sensevoice-small/` 与 `fsmn-vad/`；`service` 模式下由服务端使用 |
 | `device` | str | `auto` | `auto` / `cuda` / `cpu` |
 | `language` | str | `auto` | `auto` / `zh` / `en` / `yue` / `ja` / `ko` |
 | `use_itn` | bool | `true` | 逆文本正则化（数字、标点） |
 | `cache_path` | str | `transcripts/` | 转录缓存目录（`object_id.json`） |
 | `video_path` / `audio_path` | str | `videos/` / `audios/` | 临时目录 |
 | `keep_video` / `keep_audio` | bool | `false` | 转录完成后是否保留临时文件（失败时一律保留以便重试） |
+
+### 多账号：进程外转录服务
+
+每个 `main.py` 进程各自加载模型的话，多开就是成倍的内存与显存开销（本机实测每份常驻约 1.7GB、提交约 3.5GB、显存约 1.1GB）。把模型放进一个独立进程、多个账号共用即可：
+
+```bash
+# 终端 1：启动转录服务（模型只加载这一份，且首个请求时才真正加载）
+poetry run python -m transcript.server            # 或双击 start_asr_service.bat
+# 常用参数：--model-root D:/models  --port 8765  --token my-secret  --idle-unload 900  --no-cache
+
+# 终端 2..N：每个账号一个 main.py，各自 config.yml 里设 transcript.mode: service
+poetry run python main.py
+```
+
+客户端只负责下载视频与 ffmpeg 提取音频，把 wav 的绝对路径交给服务端；所有请求在服务端**排队串行**执行，因此多开不会争抢显存。
+
+| 场景 | 常驻 / 提交内存 | 显存 |
+|---|---|---|
+| 3 个账号都开 `mode: local` | 约 5.3GB / 约 10.7GB | 约 3.3GB |
+| 1 个服务 + 3 个客户端 | 约 2.1GB / 约 4.2GB | 约 1.1GB（客户端几乎不占） |
+
+- 服务端日志与客户端同写 `logs/transcript.log`（服务端条目前缀 `[TranscriptSvc]`）
+- 服务端默认按 `transcript.cache_path` 建缓存，多个账号各自的 `transcripts/` 目录也能共享同一份文稿，避免同一视频被重复转录
+- `GET /health` 查看设备 / 队列 / 累计次数，`POST /unload` 手动释放模型，`--idle-unload 900` 可让闲置 15 分钟后自动释放
+- 客户端与服务端必须**同机**（按绝对路径读取音频）；跨机请自行加 `--token` 并保证路径共享
+- 服务不可用时客户端按"尽力而为"降级：日志给出警告，本轮不做转录（除非显式打开 `service_fallback_local`）
 
 ---
 
@@ -230,5 +261,6 @@ searchers: {
 - **想临时停用某个搜索器？** 把该条目改为 `enabled: false`（保留配置，不影响其他条目）
 - **提示词很长，配置里全是 `\n` 转义怎么办？** 把提示词写进文本文件，用 `prompt_file` / `system_prompt_file` 引用，例如 `{ prompt_file: "prompts/answer.txt", system_prompt_file: "prompts/system.txt" }`
 - **想用另一份配置文件（如不答题的组合）启动？** 用 `python main.py -C "config(no_answer).yml"`，或直接运行 `start_no_answer.bat`，详见上文「多配置」。
+- **同时挂多个账号，内存翻倍怎么办？** 把 `transcript.mode` 设为 `service`，只启动一个转录服务进程（见上文「多账号：进程外转录服务」），各账号的 `main.py` 不再各自加载模型。
 - **内存占用 4–5GB 正常吗？** 转录开启时属于已知开销：启动基础约 130MB，首次转录加载 SenseVoice 后常驻约 1.7GB（峰值约 3.6GB）、提交约 3.5GB，另占约 1.1GB 显存；关闭 `transcript.enable` 或全程命中转录缓存时不会加载模型。想再压一压就把 `runtime.cpu_threads` 设为 `4`（省约 1GB 提交内存），细节见 [video-transcript-plan.md](video-transcript-plan.md#内存占用实测)。
 - **必须用花括号写法吗？** 不必，缩进块式（`key:` + 换行）同样支持，甚至可以混用；迁移脚本可用 `--style block` 输出块式。

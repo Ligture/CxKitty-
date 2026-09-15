@@ -372,6 +372,7 @@ class LocalSenseVoiceTranscriber:
         *,
         language: str = "auto",
         use_itn: bool = True,
+        job: Optional[dict[str, Any]] = None,
     ) -> Transcript:
         """转录一个 16kHz 单声道 wav 文件
 
@@ -379,6 +380,7 @@ class LocalSenseVoiceTranscriber:
             input_path: 音频路径
             language: ``auto`` / ``zh`` / ``en`` / ``yue`` / ``ja`` / ``ko``
             use_itn: 是否启用逆文本正则化(数字、标点)
+            job: 任务点元信息(仅服务模式用于服务端缓存去重, 本地模式忽略)
         Returns:
             Transcript: 转录结果
         Raises:

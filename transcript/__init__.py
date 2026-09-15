@@ -36,6 +36,7 @@ from .worker import (
     is_enabled,
     log_startup_report,
     prime_chapter,
+    service_status,
     settings,
     startup_report,
 )
@@ -49,6 +50,7 @@ __all__ = [
     "is_enabled",
     "startup_report",
     "log_startup_report",
+    "service_status",
     "get_worker",
     # 任务入队
     "VideoJob",

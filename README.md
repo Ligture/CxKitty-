@@ -295,6 +295,24 @@ powershell -ExecutionPolicy Bypass -File scripts/install-asr.ps1 -SkipModelDownl
 - `transcript.cache_path`：转录缓存目录，`{object_id}.json` 以视频唯一标识去重，重复刷课直接命中
 - `transcript.keep_video` / `keep_audio`：转录完成后是否保留 `videos/`、`audios/`（转录失败时会保留视频以便重试）
 
+**多账号同时挂课（进程外转录服务）**
+
+每个 `main.py` 各自加载模型的话，多开就是成倍开销（实测每份常驻约 1.7GB、提交约 3.5GB、显存约 1.1GB）。把模型放进一个独立进程，多个账号的 `main.py` 共用它：
+
+```bash
+# 终端 1：启动转录服务（模型只加载这一份，首个请求时才真正加载）
+poetry run python -m transcript.server            # 或双击 start_asr_service.bat
+# 可选参数：--model-root D:/models  --port 8765  --token my-secret  --idle-unload 900
+
+# 终端 2..N：每个账号一个 main.py，各自 config.yml 中设 transcript.mode: service
+poetry run python main.py
+```
+
+- `transcript.mode`：`local`（默认，进程内加载模型）/ `service`（交给独立服务）
+- `transcript.service_url` / `service_token` / `service_timeout` / `service_fallback_local`：服务地址、共享口令、单次超时、服务不可用时是否回退本地模型
+- 客户端只做下载与 ffmpeg 提取，请求在服务端排队串行执行，因此多开不会争抢显存；服务端加 `--cache-path`（默认取 `transcript.cache_path`）后，各账号的 `transcripts/` 目录也能共享同一份文稿
+- 3 个账号：各自加载约 5.3GB 常驻 / 10.7GB 提交 / 3.3GB 显存 → 1 个服务 + 3 个客户端约 2.1GB / 4.2GB / 1.1GB。细节见 [docs/configuration.md](docs/configuration.md#多账号进程外转录服务)
+
 **搜索器配置**（在 `searchers.items` 中新增一项，可与题库搜索器同时使用；参数表见 [docs/configuration.md](docs/configuration.md#搜索器)）
 
 ```yaml

@@ -29,9 +29,16 @@ from .cache import TranscriptCache, TranscriptRecord
 from .downloader import audio_path, download_file, video_path
 from .errors import TranscriptError, TranscriptionError
 from .extractor import extract_audio, ffmpeg_status
+from .remote import DEFAULT_SERVICE_URL, RemoteSenseVoiceTranscriber, probe_service
 
 _DEFAULT_SETTINGS = {
     "enable": False,
+    # local = 进程内加载模型; service = 交给独立的 transcript.server 进程(多账号复用同一份模型)
+    "mode": "local",
+    "service_url": "",
+    "service_token": "",
+    "service_timeout": 900,
+    "service_fallback_local": False,
     "model_root": "",
     "device": "auto",
     "language": "auto",
@@ -67,7 +74,31 @@ def settings() -> dict:
     result["model_root"] = str(result["model_root"] or "")
     result["device"] = str(result["device"] or "auto")
     result["language"] = str(result["language"] or "auto")
+    mode = str(result["mode"] or "local").strip().lower()
+    if mode == "remote":  # 语义化别名
+        mode = "service"
+    result["mode"] = mode if mode in ("local", "service") else "local"
+    result["service_url"] = str(result["service_url"] or "").strip()
+    result["service_token"] = str(result["service_token"] or "")
+    result["service_fallback_local"] = bool(result["service_fallback_local"])
+    try:
+        result["service_timeout"] = max(1.0, float(result["service_timeout"] or 900))
+    except (TypeError, ValueError):
+        result["service_timeout"] = 900.0
     return result
+
+
+def service_status(sett: Optional[dict] = None) -> dict:
+    """探测转录服务是否可用(不抛异常, 供启动报告使用)
+
+    Args:
+        sett: 配置字典, 省略时读取当前配置
+    Returns:
+        dict: ``{"ready", "url", "detail", "info"}``
+    """
+    sett = settings() if sett is None else sett
+    url = sett.get("service_url") or DEFAULT_SERVICE_URL
+    return probe_service(url, token=sett.get("service_token") or "")
 
 
 def is_enabled() -> bool:
@@ -266,6 +297,12 @@ class TranscriptWorker:
                 audio_file,
                 language=sett["language"],
                 use_itn=sett["use_itn"],
+                job={
+                    "object_id": job.object_id,
+                    "title": job.title,
+                    "knowledge_id": job.knowledge_id,
+                    "duration": job.duration,
+                },
             )
         except Exception:
             # 失败时丢弃音频(可由视频重新提取), 保留视频以便重试或人工排查
@@ -319,9 +356,35 @@ class TranscriptWorker:
                 self.logger.warning(f"Cookie 同步失败 -> {err.__class__.__name__} {err}")
         return self._session
 
-    def _get_transcriber(self, sett: dict) -> LocalSenseVoiceTranscriber:
+    def _get_transcriber(self, sett: dict):
+        """返回转录后端(进程内模型 / 独立转录服务), 进程内单例复用"""
         if self._transcriber is not None:
             return self._transcriber
+        if sett["mode"] == "service":
+            try:
+                return self._connect_service(sett)
+            except TranscriptionError as err:
+                if not sett["service_fallback_local"]:
+                    raise
+                self.logger.warning(f"转录服务不可用({err}), 回退进程内模型")
+        return self._load_local_model(sett)
+
+    def _connect_service(self, sett: dict) -> RemoteSenseVoiceTranscriber:
+        """连接独立转录服务(多账号共享同一份模型)"""
+        url = sett["service_url"] or DEFAULT_SERVICE_URL
+        transcriber = RemoteSenseVoiceTranscriber(
+            url,
+            token=sett["service_token"],
+            timeout=sett["service_timeout"],
+        )
+        self.logger.info(f"正在连接转录服务 {url} ...")
+        device = transcriber.load()
+        self.logger.info(f"转录服务就绪 {url} (device={device})")
+        self._transcriber = transcriber
+        return transcriber
+
+    def _load_local_model(self, sett: dict) -> LocalSenseVoiceTranscriber:
+        """在进程内加载 SenseVoice(与刷课主进程同进程)"""
         model_root = sett["model_root"]
         if not model_root:
             raise TranscriptionError(
@@ -480,15 +543,18 @@ def dependency_status() -> dict:
 
 
 def startup_report() -> dict:
-    """启动探测报告(ffmpeg / 模型目录 / ASR 依赖)"""
+    """启动探测报告(模式 / ffmpeg / 模型或服务 / ASR 依赖)"""
     sett = settings()
     model_root = sett["model_root"]
+    mode = sett["mode"]
     return {
         "enable": sett["enable"],
+        "mode": mode,
         "ffmpeg": ffmpeg_status(),
         "model_root": model_root,
         "models": model_root_status(model_root) if model_root else {"ready": False},
         "dependencies": dependency_status(),
+        "service": service_status(sett) if mode == "service" else None,
     }
 
 
@@ -506,18 +572,35 @@ def log_startup_report() -> dict:
     problems = []
     if not report["ffmpeg"]["ready"]:
         problems.append(report["ffmpeg"]["hint"])
-    if not report["models"].get("ready"):
-        problems.append(
-            f"SenseVoice 模型未就绪: {report['model_root'] or '(未配置 model_root)'} "
-            "(可执行 scripts/install-asr.ps1 下载)"
-        )
-    if missing := report["dependencies"]["missing"]:
-        problems.append(f"缺少 ASR 依赖: {', '.join(missing)}")
-    if problems:
-        for problem in problems:
-            logger.warning(f"视频转录不可用 -> {problem}")
+
+    if report["mode"] == "service":
+        service = report["service"] or {}
+        info = service.get("info") or {}
+        if service.get("ready"):
+            device = info.get("device") or info.get("configured_device") or "unknown"
+            loaded = "已加载" if info.get("model_loaded") else "按需加载"
+            logger.info(
+                f"转录服务就绪 {service.get('url')} (device={device}, 模型{loaded}, "
+                f"已转录 {info.get('served', 0)} 次 / 缓存命中 {info.get('cached', 0)} 次)"
+            )
+        else:
+            problems.append(
+                f"转录服务不可用: {service.get('url')} -> {service.get('detail')} "
+                "(请先启动 `python -m transcript.server`)"
+            )
     else:
-        logger.info("视频转录管道就绪 (ffmpeg / 模型 / 依赖均已就绪)")
+        if not report["models"].get("ready"):
+            problems.append(
+                f"SenseVoice 模型未就绪: {report['model_root'] or '(未配置 model_root)'} "
+                "(可执行 scripts/install-asr.ps1 下载)"
+            )
+        if missing := report["dependencies"]["missing"]:
+            problems.append(f"缺少 ASR 依赖: {', '.join(missing)}")
+        if not problems:
+            logger.info("视频转录管道就绪 (ffmpeg / 模型 / 依赖均已就绪)")
+
+    for problem in problems:
+        logger.warning(f"视频转录不可用 -> {problem}")
     return report
 
 
@@ -533,4 +616,5 @@ __all__ = [
     "dependency_status",
     "startup_report",
     "log_startup_report",
+    "service_status",
 ]

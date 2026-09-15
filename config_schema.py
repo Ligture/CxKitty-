@@ -74,6 +74,12 @@ DEFAULTS: dict[str, Any] = {
     },
     "transcript": {
         "enable": False,
+        # local = 进程内加载模型; service = 交给独立进程(多账号复用同一份模型)
+        "mode": "local",
+        "service_url": "",
+        "service_token": "",
+        "service_timeout": 900,
+        "service_fallback_local": False,
         "model_root": "",
         "device": "auto",
         "language": "auto",
