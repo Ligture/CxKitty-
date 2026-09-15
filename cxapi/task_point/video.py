@@ -2,7 +2,7 @@ import time
 import urllib.parse
 from hashlib import md5
 
-from logger import Logger
+from core.logger import Logger
 
 from ..base import TaskPointBase
 from ..exception import APIError

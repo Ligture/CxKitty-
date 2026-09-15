@@ -2,14 +2,14 @@ import json
 
 import gemini_webapi.constants
 
-import config as cfg
+from core import config as cfg
 import httpx
 import asyncio
 from gemini_webapi import GeminiClient
 from gemini_webapi.constants import Model
 from cxapi.schema import QuestionModel
 from . import SearcherBase, SearcherResp
-from logger import Logger
+from core.logger import Logger
 
 _DEFAULT_MODEL = "G-3.0-FLASH"
 _DEFAULT_PROMPT = "请回答下这个{type}：\n{value}\n{options}"

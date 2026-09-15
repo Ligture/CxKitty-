@@ -4,7 +4,7 @@ from typing import Literal
 
 from bs4 import BeautifulSoup, Tag
 
-from logger import Logger
+from core.logger import Logger
 
 from ..base import QAQDtoBase, TaskPointBase
 from ..exception import PointWorkError, WorkAccessDenied

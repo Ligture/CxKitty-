@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from logger import Logger
+from core.logger import Logger
 
 from .errors import TranscriptError
 

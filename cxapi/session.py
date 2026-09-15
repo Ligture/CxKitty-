@@ -1,5 +1,4 @@
 import re
-import sys
 import time
 from enum import Enum, auto
 from os import PathLike
@@ -15,14 +14,13 @@ from requests.models import Response
 from requests.sessions import Session
 from yarl import URL
 
-from logger import Logger
+from core import config
+from core.logger import Logger
 
 from .exception import HandleCaptchaError
+from .face_detection import FaceDetectionDto
 from .schema import AccountInfo
 from .utils import get_ua
-from .face_detection import FaceDetectionDto
-sys.path.append("..")
-import config
 
 # 接口-获取验证码图片
 API_CAPTCHA_IMG = "https://mooc1-api.chaoxing.com/processVerifyPng.ac"

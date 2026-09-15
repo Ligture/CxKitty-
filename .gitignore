@@ -128,19 +128,15 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-#editor settings
+# editor / tool settings
 .vscode/
 .idea/
+.claude/settings.local.json
 
-session/*.json
+# 运行产物(会话存档 / 日志 / 导出 / 人脸 / 转录缓存 / 视频音频)统一在 data/ 下
+data/
 questions.*
-export/*
-faces/*
-# 配置文件与备份(含多配置文件, 如 config(no_answer).yml)均不入库
+
+# 配置文件与备份(含多配置文件, 如 config.no_answer.yml)均不入库
 config*.yml
 config.yml.bak.*
-
-# 视频转录管道产物
-transcripts/
-videos/
-audios/

@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import json
 import random
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-import config
-from cxapi.schema import AccountInfo
+from . import config
+
+if TYPE_CHECKING:  # 仅用于类型标注, 避免与 cxapi 形成循环导入
+    from cxapi.schema import AccountInfo
 
 __version__ = (
     Path("pyproject.toml")

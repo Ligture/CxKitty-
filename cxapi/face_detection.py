@@ -4,8 +4,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from logger import Logger
-from utils import get_face_path_by_puid
+from core.logger import Logger
+from core.utils import get_face_path_by_puid
 
 from .exception import APIError, FaceDetectionError
 from .utils import get_ts

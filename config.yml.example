@@ -1,7 +1,7 @@
 # ============================================================
 #  CxKitty 配置 (格式 v2) — 花括号写法(YAML 流式语法, 支持 # 注释)
 #  字段说明: docs/configuration.md     旧版迁移: python scripts/migrate_config.py
-#  多配置:   python main.py -C "config(no_answer).yml" 可指定其它配置文件
+#  多配置:   python main.py -C "config.no_answer.yml" 可指定其它配置文件
 #  注意: 这是 YAML 而非严格 JSON, 因此允许注释、尾逗号、省略键名引号
 # ============================================================
 
@@ -20,10 +20,10 @@
 
   # ---------------- 目录 ----------------
   paths: {
-    session: "session/",          # 会话存档
-    logs: "logs/",                # 日志
-    export: "export/",            # 试题 / 错题导出
-    faces: "faces/",              # 人脸图片
+    session: "data/session/",  # 会话存档
+    logs: "data/logs/",        # 日志
+    export: "data/export/",    # 试题 / 错题导出
+    faces: "data/faces/",      # 人脸图片
   },
 
   # ---------------- 网络代理(同时作用于学习通请求与 AI 搜索器) ----------------
@@ -45,23 +45,23 @@
   # 下载视频 -> ffmpeg 提取音频 -> 本地 SenseVoiceSmall 转录 -> 章节文稿供 AI 作答
   # 依赖安装: scripts/install-asr.ps1 (需 Python 3.11/3.12) | 设计说明: docs/video-transcript-plan.md
   transcript: {
-    enable: false,                 # 总开关, 关闭时完全不影响原有刷课流程
+    enable: false,                    # 总开关, 关闭时完全不影响原有刷课流程
     # local = 每个 main.py 自己加载模型; service = 独立进程(多账号复用同一份模型, 省内存/显存)
     # service 模式先启动: python -m transcript.server (或 start_asr_service.bat)
     mode: local,
-    service_url: "",               # service 模式的服务地址, 如 http://127.0.0.1:8765
-    service_token: "",             # 与服务端 --token 一致的共享口令
-    service_timeout: 900,          # 单次转录等待上限(秒)
-    service_fallback_local: false, # 服务不可用时是否回退到进程内模型(回退会重新吃内存)
-    model_root: "",                # 模型根目录, 需含 sensevoice-small/ 与 fsmn-vad/; service 模式由服务端使用
-    device: "auto",                # auto / cuda / cpu
-    language: "auto",              # auto / zh / en / yue / ja / ko
-    use_itn: true,                 # 逆文本正则化(数字、标点)
-    cache_path: "transcripts/",    # 转录缓存 (object_id.json)
-    video_path: "videos/",         # 视频临时目录
-    audio_path: "audios/",         # 音频临时目录
-    keep_video: false,             # 转录完成后保留视频
-    keep_audio: false,             # 转录完成后保留音频
+    service_url: "",                  # service 模式的服务地址, 如 http://127.0.0.1:8765
+    service_token: "",                # 与服务端 --token 一致的共享口令
+    service_timeout: 900,             # 单次转录等待上限(秒)
+    service_fallback_local: false,    # 服务不可用时是否回退到进程内模型(回退会重新吃内存)
+    model_root: "",                   # 模型根目录, 需含 sensevoice-small/ 与 fsmn-vad/; service 模式由服务端使用
+    device: "auto",                   # auto / cuda / cpu
+    language: "auto",                 # auto / zh / en / yue / ja / ko
+    use_itn: true,                    # 逆文本正则化(数字、标点)
+    cache_path: "data/transcripts/",  # 转录缓存 (object_id.json)
+    video_path: "data/videos/",       # 视频临时目录
+    audio_path: "data/audios/",       # 音频临时目录
+    keep_video: false,                # 转录完成后保留视频
+    keep_audio: false,                # 转录完成后保留音频
   },
 
   # ---------------- 搜索器 ----------------

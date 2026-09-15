@@ -39,7 +39,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
-from logger import Logger
+from core.logger import Logger
 
 from .asr import LocalSenseVoiceTranscriber, Transcript, model_root_status
 from .cache import TranscriptCache, TranscriptRecord
@@ -544,7 +544,7 @@ def _build_logger() -> Logger:
     stream.setFormatter(formatter)
     raw.addHandler(stream)
     try:
-        import config as cfg
+        from core import config as cfg
 
         cfg.LOGS_PATH.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(cfg.LOGS_PATH / "transcript.log", encoding="utf8")
@@ -561,7 +561,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     """服务进程入口"""
     args = build_parser().parse_args(argv)
 
-    import config as cfg
+    from core import config as cfg
 
     transcript_cfg = getattr(cfg, "TRANSCRIPT", None)
     if not isinstance(transcript_cfg, dict):

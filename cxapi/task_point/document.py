@@ -1,4 +1,4 @@
-from logger import Logger
+from core.logger import Logger
 
 from ..base import TaskPointBase
 from ..exception import APIError

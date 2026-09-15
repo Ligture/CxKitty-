@@ -8,7 +8,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 from yarl import URL
 
-from logger import Logger
+from core.logger import Logger
 
 from .classes import ClassContainer
 from .exception import APIError

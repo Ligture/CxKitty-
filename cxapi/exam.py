@@ -14,7 +14,7 @@ from rich.table import Table
 from rich.text import Text
 from yarl import URL
 
-from logger import Logger
+from core.logger import Logger
 
 from .base import QAQDtoBase
 from .exception import (

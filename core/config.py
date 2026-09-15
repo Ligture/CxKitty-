@@ -1,18 +1,18 @@
 """配置加载与全局访问
 
 配置文件默认是运行目录下的 ``config.yml``; 启动时也可指定其它文件, 实现一套代码
-多套配置(如刷课答题用 ``config.yml``, 只刷课转录用 ``config(no_answer).yml``)。
+多套配置(如刷课答题用 ``config.yml``, 只刷课转录用 ``config.no_answer.yml``)。
 解析优先级: **启动参数 > 环境变量 > 默认值**:
 
 * 启动参数 ``-C path.yml`` / ``--config-file path.yml`` / ``--config-file=path.yml``
 * 环境变量 ``CXKITTY_CONFIG=path.yml``
 
-例如 ``poetry run python main.py -C "config(no_answer).yml"``。
+例如 ``poetry run python main.py -C "config.no_answer.yml"``。
 
 ``-C/--config-file`` 在 ``config`` 模块导入时即被消费(并从 ``sys.argv`` 中移除),
-因此系统各处 ``import config`` 拿到的都是指定配置, 且不会干扰其它参数解析器。
+因此系统各处 ``from core import config`` 拿到的都是指定配置, 且不会干扰其它参数解析器。
 
-``config.yml`` 使用 v2 分段格式(结构定义见 ``config_schema.py``,
+``config.yml`` 使用 v2 分段格式(结构定义见 ``core/config_schema.py``,
 完整说明见 ``docs/configuration.md``); 旧版 v1 扁平格式仍可读取,
 启动时提示迁移: ``python scripts/migrate_config.py``。
 
@@ -31,7 +31,7 @@ from typing import Any, Mapping, Sequence
 
 import yaml
 
-import config_schema as schema
+from . import config_schema as schema
 
 #: 默认配置文件(相对运行目录)
 DEFAULT_CONFIG_PATH = Path("config.yml")
@@ -102,7 +102,7 @@ def resolve_config_path(
     if cli_value is not None and not cli_value.strip():
         raise SystemExit(
             f"选项 {' / '.join(CONFIG_CLI_FLAGS)} 需要一个配置文件路径, "
-            '例如: python main.py -C "config(no_answer).yml"'
+            '例如: python main.py -C "config.no_answer.yml"'
         )
 
     env_value = (environ.get(CONFIG_ENV_VAR) or "").strip()

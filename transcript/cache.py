@@ -111,7 +111,7 @@ class TranscriptRecord:
 class TranscriptCache:
     """转录缓存目录读写器(线程安全: 每个方法自带原子写)"""
 
-    def __init__(self, cache_dir: str | Path = "transcripts") -> None:
+    def __init__(self, cache_dir: str | Path = "data/transcripts") -> None:
         self.cache_dir = Path(cache_dir)
 
     def path_for(self, object_id: str) -> Path:

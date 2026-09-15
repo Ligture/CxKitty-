@@ -5,7 +5,7 @@ from typing import Literal
 
 from bs4 import BeautifulSoup
 
-from logger import Logger
+from core.logger import Logger
 
 from .exception import APIError, ChapterNotOpened
 from .schema import QuestionModel, QuestionsExportSchema

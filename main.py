@@ -21,7 +21,7 @@ from qrcode import QRCode
 from rich.styled import Styled
 from rich.table import Table
 
-import config
+from core import config
 from cxapi import (
     ChaoXingAPI,
     ChapterContainer,
@@ -36,10 +36,10 @@ from cxapi import (
     PointWorkDto,
 )
 from cxapi.exception import ChapterNotOpened, TaskPointError
-from logger import Logger
+from core.logger import Logger
 from resolver import DocumetResolver, MediaPlayResolver, QuestionResolver
 import transcript
-from utils import (
+from core.utils import (
     SessionModule,
     __version__,
     ck2dict,
@@ -611,7 +611,7 @@ if __name__ == "__main__":
         type=str,
         default=str(config.CONFIG_PATH),
         metavar="PATH",
-        help='指定配置文件(默认 config.yml), 如 -C "config(no_answer).yml"; '
+        help='指定配置文件(默认 config.yml), 如 -C "config.no_answer.yml"; '
         "该选项由 config 模块在启动时读取, 也可用环境变量 CXKITTY_CONFIG",
     )
     args = parser.parse_args()

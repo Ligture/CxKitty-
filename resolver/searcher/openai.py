@@ -1,10 +1,10 @@
 import json
 from openai import OpenAI
-import config as cfg
+from core import config as cfg
 import httpx
 from cxapi.schema import QuestionModel
 from . import SearcherBase, SearcherResp
-from logger import Logger
+from core.logger import Logger
 
 _DEFAULT_BASE_URL = "https://api.openai.com/v1"
 _DEFAULT_MODEL = "gpt-4o-mini"

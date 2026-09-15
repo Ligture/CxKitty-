@@ -16,9 +16,9 @@ from typing import Optional
 import httpx
 from openai import OpenAI
 
-import config as cfg
+from core import config as cfg
 from cxapi.schema import QuestionModel
-from logger import Logger
+from core.logger import Logger
 from transcript import context
 from transcript.worker import get_worker, is_enabled
 

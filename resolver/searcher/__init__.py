@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from cxapi.schema import QuestionModel
-from logger import Logger
+from core.logger import Logger
 
 
 @dataclass

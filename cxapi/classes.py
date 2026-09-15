@@ -4,7 +4,7 @@ from typing import Iterator, Optional
 from bs4 import BeautifulSoup
 from yarl import URL
 
-from logger import Logger
+from core.logger import Logger
 
 from .chapters import ChapterContainer
 from .exam import ExamDto

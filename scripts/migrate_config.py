@@ -30,7 +30,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import config_schema as schema  # noqa: E402
+from core import config_schema as schema  # noqa: E402
 
 #: 命中这些关键字的字段在 --dry-run 输出中打码
 SENSITIVE_HINTS = (

@@ -20,11 +20,11 @@ from rich.styled import Styled
 from rich.table import Column, Row, Table
 from rich.text import Text
 
-import config
+from core import config
 from cxapi.base import QAQDtoBase
 from cxapi.exception import APIError
 from cxapi.schema import QuestionModel, QuestionsExportSchema, QuestionsExportType, QuestionType
-from logger import Logger
+from core.logger import Logger
 
 from .searcher import MultiSearcherWraper, SearcherResp
 from .searcher.geminiweb import GeminiWebSearcher

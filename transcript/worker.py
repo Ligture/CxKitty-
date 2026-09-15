@@ -20,8 +20,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-import config as cfg
-from logger import Logger
+from core import config as cfg
+from core.logger import Logger
 
 from . import context
 from .asr import LocalSenseVoiceTranscriber, model_root_status
@@ -43,9 +43,9 @@ _DEFAULT_SETTINGS = {
     "device": "auto",
     "language": "auto",
     "use_itn": True,
-    "cache_path": "transcripts/",
-    "video_path": "videos/",
-    "audio_path": "audios/",
+    "cache_path": "data/transcripts/",
+    "video_path": "data/videos/",
+    "audio_path": "data/audios/",
     "keep_video": False,
     "keep_audio": False,
 }

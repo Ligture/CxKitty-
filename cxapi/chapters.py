@@ -7,7 +7,7 @@ from rich.style import Style
 from rich.styled import Styled
 from rich.text import Text
 
-from logger import Logger
+from core.logger import Logger
 
 from .exception import APIError
 from .schema import AccountInfo, ChapterModel

@@ -10,7 +10,7 @@ from rich.progress import Progress
 
 from cxapi.exception import APIError
 from cxapi.task_point import PointVideoDto
-from logger import Logger
+from core.logger import Logger
 
 
 class MediaPlayResolver:

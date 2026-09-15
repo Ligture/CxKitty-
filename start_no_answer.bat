@@ -1,13 +1,13 @@
 @echo off
 rem ============================================================
-rem  CxKitty launcher: start with config(no_answer).yml
+rem  CxKitty launcher: start with config.no_answer.yml
 rem  (watch video / document points and transcribe, no auto-answering)
 rem  Equivalent command:
-rem    poetry run python main.py -C "config(no_answer).yml"
+rem    poetry run python main.py -C "config.no_answer.yml"
 rem  Multi-config docs: docs/configuration.md
 rem ============================================================
 cd /d "%~dp0"
-set "CONFIG_FILE=config(no_answer).yml"
+set "CONFIG_FILE=config.no_answer.yml"
 
 if not exist "%CONFIG_FILE%" goto missing
 
