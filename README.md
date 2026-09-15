@@ -311,6 +311,7 @@ poetry run python main.py
 - `transcript.mode`：`local`（默认，进程内加载模型）/ `service`（交给独立服务）
 - `transcript.service_url` / `service_token` / `service_timeout` / `service_fallback_local`：服务地址、共享口令、单次超时、服务不可用时是否回退本地模型
 - 客户端只做下载与 ffmpeg 提取，请求在服务端排队串行执行，因此多开不会争抢显存；服务端加 `--cache-path`（默认取 `transcript.cache_path`）后，各账号的 `transcripts/` 目录也能共享同一份文稿
+- 多账号建议把 `transcript.cache_path` 指向同一个目录：账号 A 转录过的视频，账号 B 直接命中缓存，连下载与音频提取都省掉
 - 3 个账号：各自加载约 5.3GB 常驻 / 10.7GB 提交 / 3.3GB 显存 → 1 个服务 + 3 个客户端约 2.1GB / 4.2GB / 1.1GB。细节见 [docs/configuration.md](docs/configuration.md#多账号进程外转录服务)
 
 **搜索器配置**（在 `searchers.items` 中新增一项，可与题库搜索器同时使用；参数表见 [docs/configuration.md](docs/configuration.md#搜索器)）

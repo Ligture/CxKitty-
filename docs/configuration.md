@@ -157,6 +157,7 @@ poetry run python main.py
 | 3 个账号都开 `mode: local` | 约 5.3GB / 约 10.7GB | 约 3.3GB |
 | 1 个服务 + 3 个客户端 | 约 2.1GB / 约 4.2GB | 约 1.1GB（客户端几乎不占） |
 
+- 多账号建议把 `transcript.cache_path` 指向**同一个目录**（如 `D:/CxKitty-transcripts/`）：账号 A 转录过的视频，账号 B 入队时就直接命中缓存，连下载与 ffmpeg 提取都省掉（否则缓存各自独立，第二个账号仍会重复下载，只是转录由服务端秒回）
 - 服务端日志与客户端同写 `logs/transcript.log`（服务端条目前缀 `[TranscriptSvc]`）
 - 服务端默认按 `transcript.cache_path` 建缓存，多个账号各自的 `transcripts/` 目录也能共享同一份文稿，避免同一视频被重复转录
 - `GET /health` 查看设备 / 队列 / 累计次数，`POST /unload` 手动释放模型，`--idle-unload 900` 可让闲置 15 分钟后自动释放
