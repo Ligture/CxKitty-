@@ -17,16 +17,16 @@
 
 ## 多配置：启动时指定配置文件
 
-同一套代码可以准备多份配置文件（例如答题用 `config.yml`，只刷课 / 转录用 `config(no_answer).yml`），启动时按需选择。解析优先级为 **启动参数 > 环境变量 > 默认值 `config.yml`**：
+同一套代码可以准备多份配置文件（例如答题用 `config.yml`，只刷课 / 转录用 `config.no_answer.yml`），启动时按需选择。解析优先级为 **启动参数 > 环境变量 > 默认值 `config.yml`**：
 
 ```bash
 # 1. 启动参数 -C / --config-file（下面三种写法等价）
-poetry run python main.py -C "config(no_answer).yml"
-poetry run python main.py --config-file "config(no_answer).yml"
-poetry run python main.py --config-file="config(no_answer).yml"
+poetry run python main.py -C "config.no_answer.yml"
+poetry run python main.py --config-file "config.no_answer.yml"
+poetry run python main.py --config-file="config.no_answer.yml"
 
 # 2. 环境变量（适合容器 / 计划任务）
-export CXKITTY_CONFIG="config(no_answer).yml"    # Windows cmd: set "CXKITTY_CONFIG=config(no_answer).yml"
+export CXKITTY_CONFIG="config.no_answer.yml"    # Windows cmd: set "CXKITTY_CONFIG=config.no_answer.yml"
 poetry run python main.py
 
 # 3. 不指定 => config.yml
@@ -37,7 +37,7 @@ poetry run python main.py
 
 - `-C/--config-file` 由 `config` 模块在启动时读取并消费，因此其它命令行参数（`-c` / `-u` / `-p` / `-l`）照常使用；启动时会打印实际生效的配置文件
 - **显式指定**的配置文件不存在时直接报错退出（避免静默跑成默认配置）；默认的 `config.yml` 缺失时只警告并回退到默认值
-- 路径相对运行目录解析；Windows 可直接用随附脚本 `start.bat`（`config.yml`）与 `start_no_answer.bat`（`config(no_answer).yml`，只刷课 / 转录、不自动答题）
+- 路径相对运行目录解析；Windows 可直接用随附脚本 `start.bat`（`config.yml`）与 `start_no_answer.bat`（`config.no_answer.yml`，只刷课 / 转录、不自动答题）
 - `config*.yml` 已在 `.gitignore` 中，多份配置（含 API Key）都不会被提交
 
 ## 结构总览
@@ -75,10 +75,10 @@ poetry run python main.py
 
 | 字段 | 默认值 | 说明 |
 |---|---|---|
-| `session` | `session/` | 会话存档目录 |
-| `logs` | `logs/` | 日志目录（含 `transcript.log`） |
-| `export` | `export/` | 试题 / 错题导出目录 |
-| `faces` | `faces/` | 人脸图片目录（文件名须为 `puid.jpg`） |
+| `session` | `data/session/` | 会话存档目录 |
+| `logs` | `data/logs/` | 日志目录（含 `transcript.log`） |
+| `export` | `data/export/` | 试题 / 错题导出目录 |
+| `faces` | `data/faces/` | 人脸图片目录（文件名须为 `puid.jpg`） |
 
 ## proxy — 网络代理
 
@@ -133,8 +133,8 @@ poetry run python main.py
 | `device` | str | `auto` | `auto` / `cuda` / `cpu` |
 | `language` | str | `auto` | `auto` / `zh` / `en` / `yue` / `ja` / `ko` |
 | `use_itn` | bool | `true` | 逆文本正则化（数字、标点） |
-| `cache_path` | str | `transcripts/` | 转录缓存目录（`object_id.json`） |
-| `video_path` / `audio_path` | str | `videos/` / `audios/` | 临时目录 |
+| `cache_path` | str | `data/transcripts/` | 转录缓存目录（`object_id.json`） |
+| `video_path` / `audio_path` | str | `data/videos/` / `data/audios/` | 临时目录 |
 | `keep_video` / `keep_audio` | bool | `false` | 转录完成后是否保留临时文件（失败时一律保留以便重试） |
 
 ### 多账号：进程外转录服务
@@ -158,8 +158,8 @@ poetry run python main.py
 | 1 个服务 + 3 个客户端 | 约 2.1GB / 约 4.2GB | 约 1.1GB（客户端几乎不占） |
 
 - 多账号建议把 `transcript.cache_path` 指向**同一个目录**（如 `D:/CxKitty-transcripts/`）：账号 A 转录过的视频，账号 B 入队时就直接命中缓存，连下载与 ffmpeg 提取都省掉（否则缓存各自独立，第二个账号仍会重复下载，只是转录由服务端秒回）
-- 服务端日志与客户端同写 `logs/transcript.log`（服务端条目前缀 `[TranscriptSvc]`）
-- 服务端默认按 `transcript.cache_path` 建缓存，多个账号各自的 `transcripts/` 目录也能共享同一份文稿，避免同一视频被重复转录
+- 服务端日志与客户端同写 `data/logs/transcript.log`（服务端条目前缀 `[TranscriptSvc]`）
+- 服务端默认按 `transcript.cache_path` 建缓存，多个账号各自的 `data/transcripts/` 目录也能共享同一份文稿，避免同一视频被重复转录
 - `GET /health` 查看设备 / 队列 / 累计次数，`POST /unload` 手动释放模型，`--idle-unload 900` 可让闲置 15 分钟后自动释放
 - 客户端与服务端必须**同机**（按绝对路径读取音频）；跨机请自行加 `--token` 并保证路径共享
 - 服务不可用时客户端按"尽力而为"降级：日志给出警告，本轮不做转录（除非显式打开 `service_fallback_local`）
@@ -261,7 +261,7 @@ searchers: {
 - **多个 AI 搜索器都要写提示词吗？** 不需要，写在 `searchers.defaults` 中共享，条目内按需覆盖。
 - **想临时停用某个搜索器？** 把该条目改为 `enabled: false`（保留配置，不影响其他条目）
 - **提示词很长，配置里全是 `\n` 转义怎么办？** 把提示词写进文本文件，用 `prompt_file` / `system_prompt_file` 引用，例如 `{ prompt_file: "prompts/answer.txt", system_prompt_file: "prompts/system.txt" }`
-- **想用另一份配置文件（如不答题的组合）启动？** 用 `python main.py -C "config(no_answer).yml"`，或直接运行 `start_no_answer.bat`，详见上文「多配置」。
+- **想用另一份配置文件（如不答题的组合）启动？** 用 `python main.py -C "config.no_answer.yml"`，或直接运行 `start_no_answer.bat`，详见上文「多配置」。
 - **同时挂多个账号，内存翻倍怎么办？** 把 `transcript.mode` 设为 `service`，只启动一个转录服务进程（见上文「多账号：进程外转录服务」），各账号的 `main.py` 不再各自加载模型。
 - **内存占用 4–5GB 正常吗？** 转录开启时属于已知开销：启动基础约 130MB，首次转录加载 SenseVoice 后常驻约 1.7GB（峰值约 3.6GB）、提交约 3.5GB，另占约 1.1GB 显存；关闭 `transcript.enable` 或全程命中转录缓存时不会加载模型。想再压一压就把 `runtime.cpu_threads` 设为 `4`（省约 1GB 提交内存），细节见 [video-transcript-plan.md](video-transcript-plan.md#内存占用实测)。
 - **必须用花括号写法吗？** 不必，缩进块式（`key:` + 换行）同样支持，甚至可以混用；迁移脚本可用 `--style block` 输出块式。

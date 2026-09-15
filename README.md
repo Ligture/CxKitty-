@@ -66,7 +66,29 @@
 
 ## 🧩Typographical
 
-![](imgs/typo.png)
+![](docs/images/typo.png)
+
+## 📁项目结构
+
+```
+CxKitty/
+├── main.py          # 程序入口(TUI 主流程)
+├── config.yml       # 本地配置(从 config.yml.example 复制, 不入库)
+├── core/            # 基础层: 配置加载/校验、日志、通用工具
+├── cxapi/           # 学习通接口封装(登录、课程、章节、任务点、考试)
+├── resolver/        # 答题解析(文档/视频/试题)
+│   └── searcher/    # 可插拔搜索器(题库、AI、章节文稿)
+├── transcript/      # 视频转录管道(本地 ASR 与独立转录服务)
+├── tools/           # 独立小工具
+├── scripts/         # 安装与迁移脚本
+├── tests/           # 单元测试
+├── docs/            # 文档与截图
+├── prompts/         # 提示词模板
+└── data/            # 运行产物: 会话/日志/导出/人脸/转录缓存(不入库)
+```
+
+- 运行产物统一放在 `data/` 下，可通过配置 `paths.*` 与 `transcript.cache_path` / `video_path` / `audio_path` 调整
+- 从旧版本升级：把原先根目录的 `session/`、`logs/`、`export/`、`faces/`、`transcripts/`、`videos/`、`audios/` 整体移入 `data/` 即可（或在配置中显式写回原路径）
 
 ## 🚀Build
 
@@ -91,14 +113,14 @@ poetry run python3 main.py
 指定配置文件（多配置）——启动参数 `-C/--config-file`，等价环境变量 `CXKITTY_CONFIG`，优先级高于默认的 `config.yml`：
 
 ```bash
-# 用 config(no_answer).yml 启动(只刷课 / 转录, 不自动答题)
-poetry run python3 main.py -C "config(no_answer).yml"
+# 用 config.no_answer.yml 启动(只刷课 / 转录, 不自动答题)
+poetry run python3 main.py -C "config.no_answer.yml"
 
 # 也可用环境变量指定
-CXKITTY_CONFIG="config(no_answer).yml" poetry run python3 main.py
+CXKITTY_CONFIG="config.no_answer.yml" poetry run python3 main.py
 ```
 
-Windows 下可直接双击 `start.bat`（使用 `config.yml`）或 `start_no_answer.bat`（使用 `config(no_answer).yml`）。
+Windows 下可直接双击 `start.bat`（使用 `config.yml`）或 `start_no_answer.bat`（使用 `config.no_answer.yml`）。
 
 ### 🐋使用  Docker  构建项目
 
@@ -127,13 +149,7 @@ docker build --tag socialsisteryi/cx-kitty .
 
 请按实际情况映射以下容器内路径：
 
-`/app/session`会话存档目录
-
-`/app/logs`程序日志目录
-
-`/app/export`试题导出目录 (根据配置文件修改，**如不需要可不映射**)
-
-`/app/faces`人脸上传目录 (根据配置文件修改，**如不需要可不映射**)
+`/app/data`运行产物目录（会话存档 / 日志 / 导出 / 人脸 / 转录缓存，对应配置中的 `paths` 与 `transcript.*_path`）
 
 `/app/config.yml`程序配置文件
 
@@ -146,10 +162,7 @@ docker build --tag socialsisteryi/cx-kitty .
 ```bash
 docker run -it \
   --name cx_kitty \
-  -v "$PWD/session:/app/session"  \
-  -v "$PWD/export:/app/export" \
-  -v "$PWD/logs:/app/logs" \
-  -v "$PWD/faces:/app/faces" \
+  -v "$PWD/data:/app/data" \
   -v "$PWD/config.yml:/app/config.yml" \
   #-v "$PWD/questions.json:/app/questions.json" \
   #-v "$PWD/questions.db:/app/questions.db" \
@@ -184,7 +197,7 @@ docker run -it \
 
 示例采用**花括号流式写法**（`{ key: value, ... }`，外观接近 JSON），但它仍是 YAML，因此支持 `#` 注释、尾逗号与省略键名引号；长提示词可用 `prompt_file` / `system_prompt_file` 指向文本文件（仓库自带 `prompts/answer.txt`、`prompts/system.txt` 作模板）。
 
-启动时可指定其它配置文件实现多配置：`poetry run python main.py -C "config(no_answer).yml"`（等价环境变量 `CXKITTY_CONFIG`，未指定时使用 `config.yml`）。多配置文件已被 `.gitignore` 忽略，不会误提交密钥。
+启动时可指定其它配置文件实现多配置：`poetry run python main.py -C "config.no_answer.yml"`（等价环境变量 `CXKITTY_CONFIG`，未指定时使用 `config.yml`）。多配置文件已被 `.gitignore` 忽略，不会误提交密钥。
 
 字段含义、搜索器参数表与完整示例见 [docs/configuration.md](docs/configuration.md)
 
@@ -192,7 +205,7 @@ docker run -it \
 
 ### 人脸识别配置
 
-人脸识别图片要求必须 .jpg 格式，存放于 `paths.faces` 配置的路径下（默认 `faces/`）
+人脸识别图片要求必须 .jpg 格式，存放于 `paths.faces` 配置的路径下（默认 `data/faces/`）
 
 若 `runtime.fetch_uploaded_face` 为 `true`，在登录成功后立即尝试拉取该用户预先上传的人脸图片，成功后以用户 puid 命名（eg：`114514.jpg`），存放于 `paths.faces` 配置的路径下，以备需要识别时读取
 
@@ -293,7 +306,7 @@ powershell -ExecutionPolicy Bypass -File scripts/install-asr.ps1 -SkipModelDownl
 - `transcript.device`：`auto`（有 cuda 用 cuda）/ `cpu` / `cuda:0`
 - `transcript.language`：`auto` / `zh` / `en` / `yue` / `ja` / `ko`
 - `transcript.cache_path`：转录缓存目录，`{object_id}.json` 以视频唯一标识去重，重复刷课直接命中
-- `transcript.keep_video` / `keep_audio`：转录完成后是否保留 `videos/`、`audios/`（转录失败时会保留视频以便重试）
+- `transcript.keep_video` / `keep_audio`：转录完成后是否保留 `data/videos/`、`data/audios/`（转录失败时会保留视频以便重试）
 
 **多账号同时挂课（进程外转录服务）**
 
@@ -310,7 +323,7 @@ poetry run python main.py
 
 - `transcript.mode`：`local`（默认，进程内加载模型）/ `service`（交给独立服务）
 - `transcript.service_url` / `service_token` / `service_timeout` / `service_fallback_local`：服务地址、共享口令、单次超时、服务不可用时是否回退本地模型
-- 客户端只做下载与 ffmpeg 提取，请求在服务端排队串行执行，因此多开不会争抢显存；服务端加 `--cache-path`（默认取 `transcript.cache_path`）后，各账号的 `transcripts/` 目录也能共享同一份文稿
+- 客户端只做下载与 ffmpeg 提取，请求在服务端排队串行执行，因此多开不会争抢显存；服务端加 `--cache-path`（默认取 `transcript.cache_path`）后，各账号的 `data/transcripts/` 目录也能共享同一份文稿
 - 多账号建议把 `transcript.cache_path` 指向同一个目录：账号 A 转录过的视频，账号 B 直接命中缓存，连下载与音频提取都省掉
 - 3 个账号：各自加载约 5.3GB 常驻 / 10.7GB 提交 / 3.3GB 显存 → 1 个服务 + 3 个客户端约 2.1GB / 4.2GB / 1.1GB。细节见 [docs/configuration.md](docs/configuration.md#多账号进程外转录服务)
 
@@ -327,9 +340,9 @@ poetry run python main.py
 
 **运行产物**
 
-- `transcripts/{object_id}.json`：`object_id / title / knowledge_id / duration / transcribed_at / language / text / segments`
-- `videos/`、`audios/`：临时文件，按上面的开关清理（已在 `.gitignore` 中忽略）
-- `logs/transcript.log`：后台转录进度（worker 线程只写日志，不触碰 TUI）
+- `data/transcripts/{object_id}.json`：`object_id / title / knowledge_id / duration / transcribed_at / language / text / segments`
+- `data/videos/`、`data/audios/`：临时文件，按上面的开关清理（已在 `.gitignore` 中忽略）
+- `data/logs/transcript.log`：后台转录进度（worker 线程只写日志，不触碰 TUI）
 
 ## 📖Usage & Demo
 
@@ -341,7 +354,7 @@ poetry run python main.py
 
 登录界面直接按下回车键则会显示二维码，使用学习通手机客户端扫描登录
 
-![](imgs/demo1.png)
+![](docs/images/demo1.png)
 
 按照提示选择目标课程，多个课程之间使用`,`分隔，使用**课程选择器语法**，如下：
 
@@ -350,11 +363,11 @@ poetry run python main.py
 - 课程名：`"解析几何"`、`"马克思主义"`（非重复项可省略后半部分）
 - 课程 courseId：`#23026xxx`、`#22928xx`
 
-![](imgs/demo2.png)
+![](docs/images/demo2.png)
 
 程序会自动完成视频及测验任务点，并展示章节任务点情况
 
-![](imgs/demo3.png)
+![](docs/images/demo3.png)
 
 如需要完成课程`0`、课程`1-3`、课程`解析几何`则输入：`0,1-3,"解析几何"`
 
@@ -366,7 +379,7 @@ poetry run python main.py
 
 如需导出题库到 export 路径，需在考试选择界面输入`e`+序号
 
-![](imgs/demo4.png)
+![](docs/images/demo4.png)
 
 ## 💡About Repo Name
 

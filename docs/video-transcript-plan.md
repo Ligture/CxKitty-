@@ -11,7 +11,7 @@
 | §5.1 保留视频直链 | ✅ | `cxapi/task_point/video.py` 新增 `http` 字段, hls-only 记 warning |
 | §5.2 视频入队 | ✅ | `main.py` 视频分支 |
 | §5.3 章节文稿指针 | ✅ | `main.py` 测验分支前 `set_current_knowledge_id`, 考试前清空 |
-| §6 配置项 | ✅ | `config.py`、`config.yml.example` |
+| §6 配置项 | ✅ | `core/config.py`、`config.yml.example` |
 | §6 TranscriptAISearcher | ✅ | `resolver/searcher/transcript.py`, 注册进 `SEARCHERS` |
 | §7 弃权而非阻塞 | ✅ | 文稿未就绪按 `wait_ready` 等待后返回未匹配; 无可期待任务时不再空等 |
 | §2 移植资产 | ✅ | `transcript/asr.py`(去 `paths.py` 依赖, model_root 由配置注入), `scripts/install-asr.ps1` |
@@ -21,7 +21,7 @@
 
 实施中补充的两点(计划外但必要):
 
-1. `transcript/worker.py` 为转录日志单独挂 `logs/transcript.log` 文件 handler 并关闭向 root 传播——`Logger` 默认不挂 handler, 否则后台进度会丢失, 且 warning 会经 `lastResort` 写 stderr 干扰 rich Live 渲染。
+1. `transcript/worker.py` 为转录日志单独挂 `data/logs/transcript.log` 文件 handler 并关闭向 root 传播——`Logger` 默认不挂 handler, 否则后台进度会丢失, 且 warning 会经 `lastResort` 写 stderr 干扰 rich Live 渲染。
 2. `resolver/question.py` 的 `load_searcher()` 原先会 `del searcher_conf["type"]` 污染 `config.SEARCHERS`, 导致 `clear_searcher_cache()` 后二次加载 `KeyError`(每次任务重复加载时触发); 已改为先复制字典。
 
 ## 1. 总体思路
@@ -35,7 +35,7 @@
 
 后台转录线程(新增,单线程队列):
   视频 fetch 成功时入队 → 下载 mp4 → ffmpeg 提取 16k wav
-  → SenseVoiceSmall+FSMN-VAD 转录 → 写缓存 transcripts/{object_id}.json
+  → SenseVoiceSmall+FSMN-VAD 转录 → 写缓存 data/transcripts/{object_id}.json
   → 注册到章节文稿表(knowledge_id → text)
 
 答题时(新增注入):
@@ -64,19 +64,19 @@ transcript/                  # 新增包
 ├── downloader.py            # 流式下载(走 SessionWraper,自动继承代理配置),文件名非法字符清洗
 ├── extractor.py             # ffmpeg subprocess 音频提取(-vn -ar 16000 -ac 1 wav);启动时探测 ffmpeg 是否可用
 ├── asr.py                   # 移植的 LocalSenseVoiceTranscriber + 模型目录就绪校验
-├── cache.py                 # transcripts/{object_id}.json 读写(schema 见 §4)
+├── cache.py                 # data/transcripts/{object_id}.json 读写(schema 见 §4)
 ├── worker.py                # 单线程后台 worker(queue.Queue),串行消费,模型进程内单例
 └── context.py               # 章节文稿注册表 knowledge_id -> 拼合文本(dict+锁,供 searcher 读)
 
 resolver/searcher/transcript.py   # TranscriptAISearcher(注册进 SEARCHERS 字典)
 cxapi/task_point/video.py         # fetch() 增加保留 json_content["http"] 字段(约 2 行)
 main.py                           # 两处钩子(见 §5)
-config.py / config.yml.example    # 新增配置段(见 §6)
+core/config.py / config.yml.example    # 新增配置段(见 §6)
 ```
 
 ## 4. 数据设计
 
-转录缓存 `transcripts/{object_id}.json`(object_id 是视频唯一标识,天然去重,重复刷课直接命中):
+转录缓存 `data/transcripts/{object_id}.json`(object_id 是视频唯一标识,天然去重,重复刷课直接命中):
 
 ```json
 {
@@ -108,8 +108,8 @@ transcript:
   model_root: "D:/Project/search_via_bilibili/models"   # 复用已有 SenseVoiceSmall+FSMN-VAD
   device: "auto"            # auto: 有 cuda 用 cuda,否则 cpu
   language: "auto"          # SenseVoice 支持 auto/zh/en/yue/ja/ko
-  cache_path: "transcripts/"
-  keep_video: false         # 转录完删除视频(磁盘紧张时);true 则保留到 videos/
+  cache_path: "data/transcripts/"
+  keep_video: false         # 转录完删除视频(磁盘紧张时);true 则保留到 data/videos/
   keep_audio: false
 
 searchers:
@@ -184,7 +184,7 @@ main.py #3  ─┘   GET /health  查看设备 / 队列 / 累计次数        �
 
 ## 9. 实施阶段
 
-- **P0(管道,约 250–300 行)**:video.py 留直链 → downloader/extractor/asr/cache/worker 落地,跑通"刷课→transcripts/ 出 JSON",答题不接入。验证产物与耗时。
+- **P0(管道,约 250–300 行)**:video.py 留直链 → downloader/extractor/asr/cache/worker 落地,跑通"刷课→data/transcripts/ 出 JSON",答题不接入。验证产物与耗时。
 - **P1(注入,约 150–200 行)**:context 注册表 + TranscriptAISearcher + main.py 两个钩子 + 配置项,打通"文稿→AI 作答",与题库搜索器并行对比正确率。
 - **P2(优化,可选)**:ananas 响应自带 `subtitle` 字段时直接拉字幕跳过 ASR;失败重试与断点续传。(WebUI 已放弃, 不再作为交付项)
 
