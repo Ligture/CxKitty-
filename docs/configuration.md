@@ -69,6 +69,7 @@ poetry run python main.py
 | `mask_acc` | bool | `true` | 手机号 / 姓名打码 |
 | `tui_max_height` | int / null | `25` | TUI 高度，`null` 表示自适应 |
 | `fetch_uploaded_face` | bool | `true` | 登录后拉取云端已上传的人脸图片 |
+| `cpu_threads` | int | `0` | 数值计算（BLAS / OpenMP / torch）线程上限，`0` = 跟随系统。线程数多时 BLAS 会按线程预分配缓冲区（每线程约 30–60MB），调小可省下 1GB 级内存，详见 [video-transcript-plan.md](video-transcript-plan.md#内存占用实测) |
 
 ## paths — 目录
 
@@ -229,4 +230,5 @@ searchers: {
 - **想临时停用某个搜索器？** 把该条目改为 `enabled: false`（保留配置，不影响其他条目）
 - **提示词很长，配置里全是 `\n` 转义怎么办？** 把提示词写进文本文件，用 `prompt_file` / `system_prompt_file` 引用，例如 `{ prompt_file: "prompts/answer.txt", system_prompt_file: "prompts/system.txt" }`
 - **想用另一份配置文件（如不答题的组合）启动？** 用 `python main.py -C "config(no_answer).yml"`，或直接运行 `start_no_answer.bat`，详见上文「多配置」。
+- **内存占用 4–5GB 正常吗？** 转录开启时属于已知开销：启动基础约 130MB，首次转录加载 SenseVoice 后常驻约 1.7GB（峰值约 3.6GB）、提交约 3.5GB，另占约 1.1GB 显存；关闭 `transcript.enable` 或全程命中转录缓存时不会加载模型。想再压一压就把 `runtime.cpu_threads` 设为 `4`（省约 1GB 提交内存），细节见 [video-transcript-plan.md](video-transcript-plan.md#内存占用实测)。
 - **必须用花括号写法吗？** 不必，缩进块式（`key:` + 换行）同样支持，甚至可以混用；迁移脚本可用 `--style block` 输出块式。

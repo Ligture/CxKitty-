@@ -157,6 +157,41 @@ def load(path: str | Path = CONFIG_PATH, *, required: bool = False) -> dict[str,
 
 CONF: dict[str, Any] = load(CONFIG_PATH, required=_CONFIG_EXPLICIT)
 
+# -------------------- 计算线程上限 --------------------
+#: ``runtime.cpu_threads``: 数值计算线程上限, 0 表示跟随系统
+CPU_THREADS: int = max(0, int(CONF["runtime"].get("cpu_threads") or 0))
+
+#: 受线程上限约束的环境变量(numpy / OpenBLAS / MKL / torch 都会读取)
+_CPU_THREAD_ENV_VARS = (
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+)
+
+
+def apply_cpu_thread_limits(threads: int = CPU_THREADS) -> int:
+    """把 ``runtime.cpu_threads`` 写入环境变量, 限制数值计算线程数
+
+    必须在 numpy / torch 等库导入**之前**调用: BLAS/OpenMP 运行库是在加载时按线程数
+    预分配缓冲区的(每个线程约 30-60MB), 在 20 线程机器上仅 numpy 导入就会提交约 600MB,
+    torch 又会再提交约 600MB。这里提前设好环境变量即可避免这部分开销。
+
+    Args:
+        threads: 线程上限, ``0`` 表示不限(不修改任何环境变量)
+    Returns:
+        int: 实际生效的线程上限(``0`` 表示未限制)
+    """
+    if threads <= 0:
+        return 0
+    for name in _CPU_THREAD_ENV_VARS:
+        os.environ[name] = str(threads)
+    return threads
+
+
+# 导入即生效: 本模块在 main.py 中先于 cxapi / numpy / torch 导入
+apply_cpu_thread_limits()
+
 
 def as_dict() -> dict[str, Any]:
     """返回当前配置的深拷贝(调试 / 迁移脚本使用)"""
@@ -215,6 +250,8 @@ __all__ = [
     "as_dict",
     "resolve_config_path",
     "load",
+    "CPU_THREADS",
+    "apply_cpu_thread_limits",
     "SESSIONS_PATH",
     "LOGS_PATH",
     "EXPORT_PATH",

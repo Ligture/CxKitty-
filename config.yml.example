@@ -14,6 +14,8 @@
     mask_acc: true,               # 手机号与姓名打码
     tui_max_height: 25,           # TUI 高度, null 表示自适应
     fetch_uploaded_face: true,    # 登录后拉取云端已上传的人脸图片
+    # 数值计算(BLAS/OpenMP/torch)线程上限, 0 = 跟随系统; 设为 4 左右可省约 1GB 提交内存
+    cpu_threads: 0,
   },
 
   # ---------------- 目录 ----------------

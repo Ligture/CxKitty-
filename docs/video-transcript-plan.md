@@ -129,6 +129,25 @@ searchers:
 - **TUI 隔离**:worker 线程绝不碰 rich Live/Layout(非线程安全),进度只走 logger。
 - **弃权而非阻塞**:答题时文稿未就绪,`TranscriptAISearcher` 按 `wait_ready` 等待后返回未匹配,主流程和题库搜索器不受影响——转录管道整体是"尽力而为的增强",任何环节失败都退化为现状。
 
+### 内存占用(实测)
+
+管道的内存几乎全部来自 ASR 依赖与模型本身。Windows 任务管理器里"提交大小"峰值约 4.6–5.8GB、常驻内存峰值约 3.6GB,构成如下(20 逻辑核心 CPU / RTX 5060,14 分钟音频实测):
+
+| 阶段 | 常驻增量 | 提交增量 | 说明 |
+|---|---|---|---|
+| 启动导入基础依赖 | ~120MB | ~220MB | requests / rich / numpy / opencv / ddddocr / openai 等 |
+| 启动依赖探测(旧实现) | ~690MB | ~1.7GB | `__import__("torch"/"funasr"/"modelscope")` 会连带加载整套 CUDA 运行库,即使本次运行一次转录都没有 |
+| 计算线程池(BLAS/OpenMP) | ~0 | ~1.2GB | numpy(OpenBLAS)与 torch 按逻辑核心数预分配缓冲,每线程约 30–60MB |
+| 首次模型加载 | ~940MB(峰值 3.6GB) | ~2.1GB | 893MB 权重文件 + 建图/搬运到 GPU 的一次性峰值;显存约 +1.1GB |
+| 单次转录(14 分钟音频) | ~740MB(峰值) | ~1.1GB | fbank 特征提取 + VAD 分片 |
+
+由此形成两条约束:
+
+- **启动探测不导入重库**:`dependency_status()` 用 `importlib.util.find_spec` + 包元数据代替 `__import__`,只回答"是否已安装";模型仍在 worker 收到第一个任务时才 `load()`。旧实现让"只刷课 / 未开启转录"的场景也白交 1.7GB 提交内存。
+- **`runtime.cpu_threads` 限制线程池**:设为 4 时实测提交内存下降约 1GB(funasr 导入 1.32GB vs 不限制时 2.36GB)。ASR 在 CUDA 上推理时 CPU 线程只服务 fbank 特征提取,调小影响很小;`device: cpu` 时线程数直接决定转录速度,按需调大。
+
+模型加载后常驻属于正常现象:进程内单例复用,任务结束后不会卸载,想回收只能退出程序。
+
 ## 8. 风险与对策
 
 | 风险 | 对策 |

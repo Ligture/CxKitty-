@@ -32,6 +32,9 @@ DEFAULTS: dict[str, Any] = {
         "mask_acc": True,
         "tui_max_height": 25,
         "fetch_uploaded_face": True,
+        # 数值计算线程上限(BLAS/OpenMP/torch), 0 = 跟随系统
+        # 系统线程数多时 BLAS 会按线程预分配内存(每线程约 30-60MB), 调小可显著降低占用
+        "cpu_threads": 0,
     },
     "paths": {
         "session": "session/",

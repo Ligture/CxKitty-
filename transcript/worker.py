@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import importlib.metadata
+import importlib.util
 import logging
 import queue
 import threading
@@ -444,15 +446,36 @@ def prime_chapter(knowledge_id) -> int:
     return count
 
 
+def _module_version(module_name: str) -> str:
+    """读取已安装包的版本号(仅查元数据, 不导入模块)"""
+
+    try:
+        return importlib.metadata.version(module_name)
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+    except Exception:  # noqa: BLE001 - 元数据异常时不影响探测
+        return "unknown"
+
+
 def dependency_status() -> dict:
-    """探测 ASR 相关依赖是否可用"""
+    """探测 ASR 相关依赖是否安装
+
+    只查 ``find_spec`` / 包元数据, **不导入模块**: 导入 torch + funasr + modelscope 会连带
+    加载整套 CUDA 运行库, 实测提交约 1.7GB 内存(常驻约 0.7GB)。启动探测若走 ``__import__``,
+    即使本次运行一次转录都没有(全部命中缓存 / 未开启转录)也要白白付出这份开销。
+
+    探测只回答"是否已安装"; 依赖损坏导致的真实导入失败仍会在转录时抛出并附带安装提示。
+    """
     result: dict = {"torch": None, "funasr": None, "modelscope": None, "missing": []}
     for module_name in ("torch", "funasr", "modelscope"):
         try:
-            module = __import__(module_name)
-            result[module_name] = str(getattr(module, "__version__", "unknown"))
-        except Exception:  # noqa: BLE001 - 可选依赖缺失属正常情况
+            installed = importlib.util.find_spec(module_name) is not None
+        except Exception:  # noqa: BLE001 - 包损坏时按未安装处理
+            installed = False
+        if not installed:
             result["missing"].append(module_name)
+            continue
+        result[module_name] = _module_version(module_name)
     return result
 
 
