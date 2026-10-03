@@ -7,8 +7,8 @@
 
     transcript/
     ├── downloader.py   流式下载(走 SessionWraper, 自动继承代理配置)
-    ├── extractor.py    ffmpeg subprocess 音频提取(16k 单声道 wav)
-    ├── asr.py          移植的 LocalSenseVoiceTranscriber + 模型目录就绪校验
+    ├── extractor.py    audio_transcription.extractor 兼容入口
+    ├── asr.py          audio_transcription.asr 兼容入口
     ├── cache.py        transcripts/{object_id}.json 读写
     ├── worker.py       单线程后台 worker(queue.Queue), 模型进程内单例
     ├── context.py      章节文稿注册表 knowledge_id -> 拼合文本

@@ -414,3 +414,9 @@ poetry run python main.py
 [SocialSisterYi/xuexiaoyi-to-xuexitong-tampermonkey-proxy: 基于“学小易”搜题API的学习通答题/考试油猴脚本题库代理 (github.com)](https://github.com/SocialSisterYi/xuexiaoyi-to-xuexitong-tampermonkey-proxy)
 
 [CodFrm/cxmooc-tools: 一个 超星(学习通)/智慧树(知到)/中国大学mooc 学习工具,火狐,谷歌,油猴支持.全自动任务,视频倍速秒过,作业考试题库,验证码自动打码(੧ᐛ੭挂科模式,启动) (github.com)](https://github.com/CodFrm/cxmooc-tools)
+
+## 独立音频转录模块
+
+音频提取、SenseVoice 识别和远程客户端已提取为可独立安装的
+[`audio_transcription`](audio_transcription/README.md) 模块, 提供 Python API 和
+`python -m audio_transcription` 命令行入口。现有课程转录流程和服务启动方式保持兼容。

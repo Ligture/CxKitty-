@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cxkitty-audio-transcription"
+version = "0.1.0"
+description = "Reusable SenseVoice audio transcription and ffmpeg extraction"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "GPL-3.0-only"}
+dependencies = []
+
+[project.optional-dependencies]
+local = ["funasr==1.4.2", "modelscope>=1.20,<2", "torch>=2.2", "torchaudio>=2.2"]
+remote = ["requests>=2.28,<3"]
+ffmpeg = ["imageio-ffmpeg>=0.4"]
+
+[project.scripts]
+audio-transcribe = "audio_transcription.__main__:main"
+
+[tool.setuptools]
+packages = ["audio_transcription"]
+package-dir = {audio_transcription = "."}

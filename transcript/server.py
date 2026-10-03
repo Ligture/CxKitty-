@@ -41,10 +41,10 @@ from typing import Any, Callable, Iterator, Optional
 
 from core.logger import Logger
 
-from .asr import LocalSenseVoiceTranscriber, Transcript, model_root_status
+from audio_transcription import LocalSenseVoiceTranscriber, Transcript, model_root_status
 from .cache import TranscriptCache, TranscriptRecord
 from .errors import TranscriptError, TranscriptionError
-from .remote import TOKEN_HEADER
+from audio_transcription.remote import TOKEN_HEADER
 
 #: 默认监听地址与端口(仅本机回环)
 DEFAULT_HOST = "127.0.0.1"

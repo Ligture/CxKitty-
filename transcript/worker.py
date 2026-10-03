@@ -24,12 +24,12 @@ from core import config as cfg
 from core.logger import Logger
 
 from . import context
-from .asr import LocalSenseVoiceTranscriber, model_root_status
+from audio_transcription.asr import LocalSenseVoiceTranscriber, model_root_status
 from .cache import TranscriptCache, TranscriptRecord
 from .downloader import audio_path, download_file, video_path
 from .errors import TranscriptError, TranscriptionError
-from .extractor import extract_audio, ffmpeg_status
-from .remote import DEFAULT_SERVICE_URL, RemoteSenseVoiceTranscriber, probe_service
+from audio_transcription.extractor import extract_audio, ffmpeg_status
+from audio_transcription.remote import DEFAULT_SERVICE_URL, RemoteSenseVoiceTranscriber, probe_service
 
 _DEFAULT_SETTINGS = {
     "enable": False,

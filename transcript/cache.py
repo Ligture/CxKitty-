@@ -21,7 +21,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterator, Optional
 
-from .asr import Transcript, TranscriptSegment
+from audio_transcription import Transcript, TranscriptSegment
 from .downloader import sanitize_filename
 from .errors import TranscriptError
 
