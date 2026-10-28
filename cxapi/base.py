@@ -2,6 +2,7 @@ import json
 import re
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
@@ -127,21 +128,48 @@ class TaskPointBase:
         resp.raise_for_status()
         html = BeautifulSoup(resp.text, "lxml")
 
-        if r := re.search(
-            r"window\.AttachmentSetting *= *(?P<json>.+);",
-            html.head.find("script", type="text/javascript").text,
-        ):
-            self.attachment = json.loads(r.group("json"))
+        # 页面可能在其他 script 或 body 内声明数据；JSON 后还可能有其他 JS。
+        # raw_decode 只读取一个 JSON 值，兼容换行且不会吞入后续语句。
+        parse_error = None
+        for script in html.find_all("script"):
+            source = script.string or script.get_text()
+            match = re.search(r"\bwindow\.AttachmentSetting\s*=\s*", source)
+            if match is None:
+                continue
+            try:
+                attachment, _ = json.JSONDecoder().raw_decode(source[match.end():].lstrip())
+            except json.JSONDecodeError as exc:
+                parse_error = f"AttachmentSetting JSON 无效（行 {exc.lineno}，列 {exc.colno}）"
+                continue
+            if not isinstance(attachment, dict):
+                parse_error = "AttachmentSetting 应为 JSON 对象"
+                continue
+            self.attachment = attachment
             self.logger.debug(f"Attachment: {self.attachment}")
-        else:
-            if t := html.select_one("p.blankTips"):
-                if t.text == "章节未开放！":
-                    self.logger.error("章节未开放")
-                    raise ChapterNotOpened
-                else:
-                    raise APIError(t.text)
-            raise APIError
-        self.logger.info("Attachment拉取成功")
+            self.logger.info("Attachment拉取成功")
+            return
+
+        if tip := html.select_one("p.blankTips"):
+            message = tip.get_text(" ", strip=True)
+            if message == "章节未开放！":
+                self.logger.error("章节未开放")
+                raise ChapterNotOpened(message)
+            if message:
+                raise APIError(message)
+
+        # 保留排查所需的上下文，不记录完整页面或带令牌的 URL 查询参数。
+        url = urlsplit(resp.url)
+        safe_url = urlunsplit((url.scheme, url.netloc, url.path, "", ""))
+        title = html.title.get_text(" ", strip=True)[:120] if html.title else "无标题"
+        reason = parse_error or "页面缺少 window.AttachmentSetting"
+        message = (
+            f"任务卡片加载失败：{reason}；页面标题={title!r}；URL={safe_url}；"
+            f"courseid={self.course_id}, clazzid={self.class_id}, "
+            f"knowledgeid={self.knowledge_id}, num={self.card_index}。"
+            "请检查登录状态及该章节在学习通中是否可访问。"
+        )
+        self.logger.error(message)
+        raise APIError(message)
 
     def parse_attachment(self) -> bool:
         """解析任务点卡片 Attachment
